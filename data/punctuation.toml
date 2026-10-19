@@ -1,0 +1,57 @@
+# IME-only digit and punctuation tables (not part of the letter map).
+# Keys are the characters the user types (US-QWERTY layout); values are the
+# single character inserted. Applied after the preedit is committed.
+# Selected by [options] digits / punctuation / guillemets.
+
+[digits.persian]   # U+06F0..U+06F9 (extended Arabic-Indic, the Persian forms)
+"0" = "۰"
+"1" = "۱"
+"2" = "۲"
+"3" = "۳"
+"4" = "۴"
+"5" = "۵"
+"6" = "۶"
+"7" = "۷"
+"8" = "۸"
+"9" = "۹"
+
+[digits.ascii]
+"0" = "0"
+"1" = "1"
+"2" = "2"
+"3" = "3"
+"4" = "4"
+"5" = "5"
+"6" = "6"
+"7" = "7"
+"8" = "8"
+"9" = "9"
+
+[punctuation.persian]
+"," = "،"   # U+060C ARABIC COMMA
+";" = "؛"   # U+061B ARABIC SEMICOLON
+"?" = "؟"   # U+061F ARABIC QUESTION MARK
+"%" = "٪"   # U+066A ARABIC PERCENT SIGN
+
+[punctuation.none]
+# empty: , ; ? % pass through as US-QWERTY ASCII
+
+# Off by default. Chosen by [options] guillemets = "angle" | "brace". The
+# opening mark comes first in logical order (the host mirrors it for RTL).
+[guillemets.angle]
+"<" = "«"   # U+00AB
+">" = "»"   # U+00BB
+
+[guillemets.brace]
+"{" = "«"
+"}" = "»"
+
+# US-QWERTY pass-through (PLAN 2.4): while the IME is active in Persian mode every
+# printable key without Ctrl/Alt is eaten and inserted from a fixed US table, because
+# the underlying fa-IR layout would otherwise emit Persian-layout characters.
+# Letters and ' go to the phonetic map; digits and the three tables above are
+# converted; every other printable ASCII character (U+0020..U+007E) inserts itself,
+# unchanged, e.g. - . / = [ ] \ ` " ( ) ! @ # $ ^ & * _ + : | ~ and, unless
+# guillemets are on, < > { }.
+[passthrough]
+note = "every printable ASCII not listed above inserts itself unchanged"

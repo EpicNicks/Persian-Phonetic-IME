@@ -1,0 +1,60 @@
+# Letters only: every key has exactly one candidate, so the candidate list never opens.
+# Persian-only sounds (ص ث ذ ض ظ ط ح ء آ ...) cannot be typed with this preset
+# unless the user adds raw [map.*] overrides.
+
+[options]
+gh = "ghain"
+q = "qaf"
+c = "none"
+kh = "khe"
+ch = "che"
+digits = "persian"
+punctuation = "persian"
+guillemets = "none"
+shift_letters = "lowercase"
+space = "preedit"
+enter = "commit"
+number_select = true
+candidate_labels = false
+allow_arabic_forms = false
+allow_sequences = false
+
+[autocomplete]
+enabled = false
+predict_min_chars = 2
+learning = true
+
+[map.digraphs]
+kh = ["خ"]
+gh = ["غ"]
+ch = ["چ"]
+sh = ["ش"]
+zh = ["ژ"]
+
+[map.singles]
+a = ["ا"]
+e = ["ا"]
+i = ["ی"]
+o = ["و"]
+u = ["و"]
+b = ["ب"]
+p = ["پ"]
+t = ["ت"]
+s = ["س"]
+j = ["ج"]
+h = ["ه"]
+d = ["د"]
+z = ["ز"]
+r = ["ر"]
+f = ["ف"]
+k = ["ک"]
+g = ["گ"]
+l = ["ل"]
+m = ["م"]
+n = ["ن"]
+v = ["و"]
+w = ["و"]
+x = ["خ"]
+y = ["ی"]
+q = ["ق"]
+"'" = ["ع"]

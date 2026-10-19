@@ -1,0 +1,40 @@
+# WS1 TSF spike: disposable. Excluded from the root workspace on purpose.
+[package]
+name = "pime_spike"
+version = "0.0.1"
+edition = "2021"
+publish = false
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"] # rlib so `cargo test` can exercise the engine
+
+[workspace]
+
+[dependencies]
+windows-core = "0.62.2"
+
+[dependencies.windows]
+version = "0.62.2"
+features = [
+    "Win32_Foundation",
+    "Win32_Globalization",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Ole",
+    "Win32_System_Registry",
+    "Win32_System_SystemServices",
+    "Win32_System_Variant",
+    "Win32_Security",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_TextServices",
+]
+
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "unwind"
+opt-level = 2
+debug = 1          # keep PDBs useful for crash dumps from host processes
+codegen-units = 4

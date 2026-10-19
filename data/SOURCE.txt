@@ -1,0 +1,15 @@
+Imported 2026-10-17 (one-off; no ongoing sync).
+
+Web:     E:\Code\Projects\Qamooscheh-Web\Qamooscheh-Web
+         src/domain/persian/phoneticMap.ts
+         last commit touching the file: 2ddbc6f266688a5cae4f1fc6ef56576dfb35138b
+         repo HEAD at import:           db29144e055992ba07d23452bc403bf7ffdbfd7b
+
+Android: E:\Code\Projects\Qamooscheh-Android
+         core/domain/.../input/persian/PhoneticMap.kt (port of the web map)
+         core/domain/.../input/persian/PersianPhoneticEngineTest.kt (golden seeds)
+         last commit touching input/persian: 151fa19c81ad573df2b74a894c98e9aa6244d6a9
+         repo HEAD at import:                db62bffe39b9d84691271760d3ac80a1df09239e
+
+Behavioural differences from the sources are intentional: this IME uses whole-word
+preedit and shows a lone "c" as a visible pending "c" (web/Android silently buffer it).

@@ -1,0 +1,1359 @@
+{
+ "version": 1,
+ "cases": [
+  {
+   "type": "session",
+   "name": "space commits preedit then a space",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "a",
+    "b",
+    "Space"
+   ],
+   "committed": "شاب ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "preedit open before space",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "a",
+    "b"
+   ],
+   "committed": "",
+   "preedit": "شاب"
+  },
+  {
+   "type": "session",
+   "name": "enter commits only",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "a",
+    "b",
+    "Enter"
+   ],
+   "committed": "شاب",
+   "preedit": "",
+   "notes": "Enter is eaten; the app sees no newline"
+  },
+  {
+   "type": "session",
+   "name": "enter idle passes through",
+   "config": "qamooscheh",
+   "keys": [
+    "Enter"
+   ],
+   "committed": "",
+   "preedit": "",
+   "notes": "committed lists only text the IME inserted; an un-eaten Enter is not in it"
+  },
+  {
+   "type": "session",
+   "name": "space idle inserts space",
+   "config": "qamooscheh",
+   "keys": [
+    "Space"
+   ],
+   "committed": " ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "backspace undoes digraph",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "Backspace"
+   ],
+   "committed": "",
+   "preedit": "س",
+   "notes": "Backspace removes the last Latin char and re-renders"
+  },
+  {
+   "type": "session",
+   "name": "backspace to empty ends composition",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Backspace"
+   ],
+   "committed": "",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "backspace then continue",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "Backspace",
+    "a",
+    "Space"
+   ],
+   "committed": "سا ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "backspace idle passes through",
+   "config": "qamooscheh",
+   "keys": [
+    "Backspace"
+   ],
+   "committed": "",
+   "preedit": "",
+   "notes": "never deletes committed text; the key passes to the app"
+  },
+  {
+   "type": "session",
+   "name": "escape closes list keeps preedit",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Escape"
+   ],
+   "committed": "",
+   "preedit": "س",
+   "notes": "list is open after an ambiguous token; first Escape closes it only"
+  },
+  {
+   "type": "session",
+   "name": "escape twice cancels",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Escape",
+    "Escape"
+   ],
+   "committed": "",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "escape cancels when no list",
+   "config": "qamooscheh",
+   "keys": [
+    "b",
+    "Escape"
+   ],
+   "committed": "",
+   "preedit": "",
+   "notes": "b is unambiguous so no list is open; Escape cancels the composition"
+  },
+  {
+   "type": "session",
+   "name": "escape cancels multi-letter word",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "a",
+    "b",
+    "Escape"
+   ],
+   "committed": "",
+   "preedit": "",
+   "notes": "last token b is unambiguous: no list, so one Escape cancels"
+  },
+  {
+   "type": "session",
+   "name": "escape idle passes through",
+   "config": "qamooscheh",
+   "keys": [
+    "Escape"
+   ],
+   "committed": "",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "escape cancel then space",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Escape",
+    "Escape",
+    "Space"
+   ],
+   "committed": " ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "typing after escape continues",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Escape",
+    "a"
+   ],
+   "committed": "",
+   "preedit": "سا",
+   "notes": "closing the list does not end the composition; the next letter continues it"
+  },
+  {
+   "type": "session",
+   "name": "number picks second candidate",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "2"
+   ],
+   "committed": "ص",
+   "preedit": "",
+   "notes": "pick commits the whole word with that token replaced; no trailing space"
+  },
+  {
+   "type": "session",
+   "name": "number picks third",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "3"
+   ],
+   "committed": "ث",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number picks first",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "1"
+   ],
+   "committed": "س",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number picks alef madda",
+   "config": "qamooscheh",
+   "keys": [
+    "a",
+    "2"
+   ],
+   "committed": "آ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number picks e alias",
+   "config": "qamooscheh",
+   "keys": [
+    "e",
+    "2"
+   ],
+   "committed": "آ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number picks in word",
+   "config": "qamooscheh",
+   "keys": [
+    "b",
+    "a",
+    "s",
+    "3"
+   ],
+   "committed": "باث",
+   "preedit": "",
+   "notes": "list shows alternates of the last ambiguous token (s)"
+  },
+  {
+   "type": "session",
+   "name": "number picks gh qaf",
+   "config": "qamooscheh",
+   "keys": [
+    "g",
+    "h",
+    "2"
+   ],
+   "committed": "ق",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number picks z fourth",
+   "config": "qamooscheh",
+   "keys": [
+    "z",
+    "4"
+   ],
+   "committed": "ظ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number picks apostrophe hamza",
+   "config": "qamooscheh",
+   "keys": [
+    "'",
+    "2"
+   ],
+   "committed": "ء",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number picks h hah",
+   "config": "qamooscheh",
+   "keys": [
+    "h",
+    "2"
+   ],
+   "committed": "ح",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number with no list is a digit",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "1"
+   ],
+   "committed": "ش۱",
+   "preedit": "",
+   "notes": "sh is unambiguous: no list, so 1 commits the preedit then inserts ۱"
+  },
+  {
+   "type": "session",
+   "name": "number out of range falls through to digit",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "5"
+   ],
+   "committed": "س۵",
+   "preedit": "",
+   "notes": "ASSUMPTION: list has 3 items; 5 is out of range so it acts as a digit (commit preedit, insert ۵)"
+  },
+  {
+   "type": "session",
+   "name": "number_select false types digit",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nnumber_select = false\n"
+   },
+   "keys": [
+    "s",
+    "2"
+   ],
+   "committed": "س۲",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number pick then continue",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "2",
+    "b"
+   ],
+   "committed": "ص",
+   "preedit": "ب"
+  },
+  {
+   "type": "session",
+   "name": "down moves highlight and previews",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Down"
+   ],
+   "committed": "",
+   "preedit": "ص",
+   "notes": "ASSUMPTION: first Down moves highlight 0 -> 1 and the preedit previews the highlighted candidate for the last ambiguous token"
+  },
+  {
+   "type": "session",
+   "name": "down then enter commits highlighted",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Down",
+    "Enter"
+   ],
+   "committed": "ص",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "down twice enter",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Down",
+    "Down",
+    "Enter"
+   ],
+   "committed": "ث",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "down wraps",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Down",
+    "Down",
+    "Down",
+    "Enter"
+   ],
+   "committed": "س",
+   "preedit": "",
+   "notes": "ASSUMPTION: highlight wraps around"
+  },
+  {
+   "type": "session",
+   "name": "up wraps to last",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Up",
+    "Enter"
+   ],
+   "committed": "ث",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "down then up",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Down",
+    "Up",
+    "Enter"
+   ],
+   "committed": "س",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "tab behaves like down",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Tab",
+    "Enter"
+   ],
+   "committed": "ص",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "down then space",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Down",
+    "Space"
+   ],
+   "committed": "ص ",
+   "preedit": "",
+   "notes": "Space with a highlighted candidate commits what the preedit shows (the preview)"
+  },
+  {
+   "type": "session",
+   "name": "down then letter keeps choice",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Down",
+    "a",
+    "Space"
+   ],
+   "committed": "صا ",
+   "preedit": "",
+   "notes": "ASSUMPTION: moving the highlight fixes that token's override; typing on continues the composition"
+  },
+  {
+   "type": "session",
+   "name": "down in word",
+   "config": "qamooscheh",
+   "keys": [
+    "b",
+    "a",
+    "z",
+    "Down",
+    "Down",
+    "Enter"
+   ],
+   "committed": "باض",
+   "preedit": "",
+   "notes": "z: ز ذ ض ظ; two Downs reach ض"
+  },
+  {
+   "type": "session",
+   "name": "down without list commits and passes",
+   "config": "qamooscheh",
+   "keys": [
+    "b",
+    "Down"
+   ],
+   "committed": "ب",
+   "preedit": "",
+   "notes": "ASSUMPTION: Down/Up/Tab with a preedit but no list open behave like caret keys: commit, then the key passes through"
+  },
+  {
+   "type": "session",
+   "name": "left commits and passes",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "Left"
+   ],
+   "committed": "ش",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "right commits and passes",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "h",
+    "Right"
+   ],
+   "committed": "ش",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "shift letter default lowercases",
+   "config": "qamooscheh",
+   "keys": [
+    "S",
+    "H"
+   ],
+   "committed": "",
+   "preedit": "ش",
+   "notes": "shift_letters=lowercase folds uppercase"
+  },
+  {
+   "type": "session",
+   "name": "shift A default",
+   "config": "qamooscheh",
+   "keys": [
+    "A"
+   ],
+   "committed": "",
+   "preedit": "ا"
+  },
+  {
+   "type": "session",
+   "name": "shift alternate A",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nshift_letters = \"alternate\"\n"
+   },
+   "keys": [
+    "A"
+   ],
+   "committed": "",
+   "preedit": "آ",
+   "notes": "Shift+letter picks that token's second candidate"
+  },
+  {
+   "type": "session",
+   "name": "shift alternate S",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nshift_letters = \"alternate\"\n"
+   },
+   "keys": [
+    "S"
+   ],
+   "committed": "",
+   "preedit": "ص"
+  },
+  {
+   "type": "session",
+   "name": "shift alternate Z",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nshift_letters = \"alternate\"\n"
+   },
+   "keys": [
+    "Z"
+   ],
+   "committed": "",
+   "preedit": "ذ"
+  },
+  {
+   "type": "session",
+   "name": "shift alternate unambiguous letter",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nshift_letters = \"alternate\"\n"
+   },
+   "keys": [
+    "B"
+   ],
+   "committed": "",
+   "preedit": "ب",
+   "notes": "ASSUMPTION: a token with no second candidate falls back to its first"
+  },
+  {
+   "type": "session",
+   "name": "shift alternate in word",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nshift_letters = \"alternate\"\n"
+   },
+   "keys": [
+    "A",
+    "b",
+    "Space"
+   ],
+   "committed": "آب ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "shift alternate lowercase unaffected",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nshift_letters = \"alternate\"\n"
+   },
+   "keys": [
+    "a",
+    "b",
+    "Space"
+   ],
+   "committed": "اب ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "shift alternate mixed",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nshift_letters = \"alternate\"\n"
+   },
+   "keys": [
+    "S",
+    "a",
+    "l",
+    "A",
+    "m",
+    "Space"
+   ],
+   "committed": "صالآم ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "shift space composing makes zwnj",
+   "config": "qamooscheh",
+   "keys": [
+    "m",
+    "i",
+    "ShiftSpace",
+    "k",
+    "h",
+    "w",
+    "a",
+    "h",
+    "m",
+    "Space"
+   ],
+   "committed": "می\u200cخواهم ",
+   "preedit": "",
+   "notes": "one composition; ZWNJ is a buffer token"
+  },
+  {
+   "type": "session",
+   "name": "shift space idle inserts zwnj",
+   "config": "qamooscheh",
+   "keys": [
+    "ShiftSpace"
+   ],
+   "committed": "\u200c",
+   "preedit": "",
+   "notes": "toggle-off on a second tap needs a document read-back, so it is not part of the golden contract"
+  },
+  {
+   "type": "session",
+   "name": "zwnj blocks digraph",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "ShiftSpace",
+    "h",
+    "Space"
+   ],
+   "committed": "س\u200cه ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "backspace removes zwnj",
+   "config": "qamooscheh",
+   "keys": [
+    "m",
+    "ShiftSpace",
+    "Backspace"
+   ],
+   "committed": "",
+   "preedit": "م",
+   "notes": "a ZWNJ token counts as one unit for Backspace"
+  },
+  {
+   "type": "session",
+   "name": "zwnj preedit",
+   "config": "qamooscheh",
+   "keys": [
+    "m",
+    "ShiftSpace"
+   ],
+   "committed": "",
+   "preedit": "م\u200c"
+  },
+  {
+   "type": "session",
+   "name": "zwnj leaves no list",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "ShiftSpace",
+    "2"
+   ],
+   "committed": "س\u200c۲",
+   "preedit": "",
+   "notes": "last token is ZWNJ, not ambiguous, so no list: 2 is a digit"
+  },
+  {
+   "type": "session",
+   "name": "digits idle persian",
+   "config": "qamooscheh",
+   "keys": [
+    "1",
+    "2",
+    "3"
+   ],
+   "committed": "۱۲۳",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "all digits",
+   "config": "qamooscheh",
+   "keys": [
+    "0",
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9"
+   ],
+   "committed": "۰۱۲۳۴۵۶۷۸۹",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "digits ascii",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ndigits = \"ascii\"\n"
+   },
+   "keys": [
+    "1",
+    "2",
+    "3"
+   ],
+   "committed": "123",
+   "preedit": "",
+   "notes": "digits are still eaten and inserted by the IME"
+  },
+  {
+   "type": "session",
+   "name": "digit after unambiguous letter commits first",
+   "config": "qamooscheh",
+   "keys": [
+    "b",
+    "1"
+   ],
+   "committed": "ب۱",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "digit after unambiguous letter ascii",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ndigits = \"ascii\"\n"
+   },
+   "keys": [
+    "b",
+    "1"
+   ],
+   "committed": "ب1",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "number_select false ascii",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ndigits = \"ascii\"\nnumber_select = false\n"
+   },
+   "keys": [
+    "s",
+    "2"
+   ],
+   "committed": "س2",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "punctuation persian",
+   "config": "qamooscheh",
+   "keys": [
+    ",",
+    ";",
+    "?",
+    "%"
+   ],
+   "committed": "،؛؟٪",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "comma after word",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "a",
+    "l",
+    "a",
+    "m",
+    ","
+   ],
+   "committed": "سالام،",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "question mark after word",
+   "config": "qamooscheh",
+   "keys": [
+    "m",
+    "i",
+    "?"
+   ],
+   "committed": "می؟",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "punctuation none",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\npunctuation = \"none\"\n"
+   },
+   "keys": [
+    ",",
+    ";",
+    "?",
+    "%"
+   ],
+   "committed": ",;?%",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "punctuation none after word",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\npunctuation = \"none\"\n"
+   },
+   "keys": [
+    "b",
+    ","
+   ],
+   "committed": "ب,",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "other ASCII passes through US table",
+   "config": "qamooscheh",
+   "keys": [
+    "-",
+    "."
+   ],
+   "committed": "-.",
+   "preedit": "",
+   "notes": "every other printable ASCII is eaten and inserted unchanged"
+  },
+  {
+   "type": "session",
+   "name": "period after word",
+   "config": "qamooscheh",
+   "keys": [
+    "b",
+    "."
+   ],
+   "committed": "ب.",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "guillemets angle",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nguillemets = \"angle\"\n"
+   },
+   "keys": [
+    "<",
+    "b",
+    ">"
+   ],
+   "committed": "«ب»",
+   "preedit": "",
+   "notes": "'<' idle inserts «; '>' commits the preedit then inserts »"
+  },
+  {
+   "type": "session",
+   "name": "guillemets brace",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nguillemets = \"brace\"\n"
+   },
+   "keys": [
+    "{",
+    "b",
+    "}"
+   ],
+   "committed": "«ب»",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "guillemets off by default",
+   "config": "qamooscheh",
+   "keys": [
+    "<",
+    ">"
+   ],
+   "committed": "<>",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "guillemets brace leaves angle alone",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nguillemets = \"brace\"\n"
+   },
+   "keys": [
+    "<"
+   ],
+   "committed": "<",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "two words",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "a",
+    "l",
+    "a",
+    "m",
+    "Space",
+    "k",
+    "h",
+    "u",
+    "b",
+    "Space"
+   ],
+   "committed": "سالام خوب ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "khub",
+   "config": "qamooscheh",
+   "keys": [
+    "k",
+    "h",
+    "u",
+    "b",
+    "Space"
+   ],
+   "committed": "خوب ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "apostrophe is a letter",
+   "config": "qamooscheh",
+   "keys": [
+    "'",
+    "Space"
+   ],
+   "committed": "ع ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "apostrophe mid word session",
+   "config": "qamooscheh",
+   "keys": [
+    "m",
+    "a",
+    "'",
+    "Space"
+   ],
+   "committed": "ماع ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "c default pending commits as c",
+   "config": "qamooscheh",
+   "keys": [
+    "c",
+    "Space"
+   ],
+   "committed": "c ",
+   "preedit": "",
+   "notes": "ASSUMPTION: Space commits exactly what the preedit shows, so a lone pending c is committed as Latin c (never silently dropped)"
+  },
+  {
+   "type": "session",
+   "name": "c then h",
+   "config": "qamooscheh",
+   "keys": [
+    "c",
+    "h",
+    "Space"
+   ],
+   "committed": "چ ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "c then a",
+   "config": "qamooscheh",
+   "keys": [
+    "c",
+    "a",
+    "Space"
+   ],
+   "committed": "cا ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "c=k",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"k\"\n"
+   },
+   "keys": [
+    "c",
+    "a",
+    "Space"
+   ],
+   "committed": "کا ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "c=s",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"s\"\n"
+   },
+   "keys": [
+    "c",
+    "Space"
+   ],
+   "committed": "س ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "c=s pick sad",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"s\"\n"
+   },
+   "keys": [
+    "c",
+    "2"
+   ],
+   "committed": "ص",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "c=none backspace removes pending c",
+   "config": "qamooscheh",
+   "keys": [
+    "c",
+    "Backspace"
+   ],
+   "committed": "",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "gh=qaf commit",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ngh = \"qaf\"\n"
+   },
+   "keys": [
+    "g",
+    "h",
+    "Space"
+   ],
+   "committed": "ق ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "gh=qaf pick ghain",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ngh = \"qaf\"\n"
+   },
+   "keys": [
+    "g",
+    "h",
+    "2"
+   ],
+   "committed": "غ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "q=ghain commit",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nq = \"ghain\"\n"
+   },
+   "keys": [
+    "q",
+    "Space"
+   ],
+   "committed": "غ ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "q=ghain pick qaf",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nq = \"ghain\"\n"
+   },
+   "keys": [
+    "q",
+    "2"
+   ],
+   "committed": "ق",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "enter commit-and-pass",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nenter = \"commit-and-pass\"\n"
+   },
+   "keys": [
+    "s",
+    "h",
+    "a",
+    "b",
+    "Enter"
+   ],
+   "committed": "شاب",
+   "preedit": "",
+   "notes": "preedit committed, then Enter passes through to the app (not in committed)"
+  },
+  {
+   "type": "session",
+   "name": "enter commit-and-pass idle",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nenter = \"commit-and-pass\"\n"
+   },
+   "keys": [
+    "Enter"
+   ],
+   "committed": "",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "enter commit-and-pass with highlight",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nenter = \"commit-and-pass\"\n"
+   },
+   "keys": [
+    "s",
+    "Down",
+    "Enter"
+   ],
+   "committed": "ص",
+   "preedit": "",
+   "notes": "ASSUMPTION: highlighted candidate is committed, then Enter passes"
+  },
+  {
+   "type": "session",
+   "name": "space top-candidate v1 equals preedit",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nspace = \"top-candidate\"\n"
+   },
+   "keys": [
+    "s",
+    "h",
+    "a",
+    "b",
+    "Space"
+   ],
+   "committed": "شاب ",
+   "preedit": "",
+   "notes": "v1 has no dictionary, so top-candidate commits exactly the preedit"
+  },
+  {
+   "type": "session",
+   "name": "space top-candidate ambiguous",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nspace = \"top-candidate\"\n"
+   },
+   "keys": [
+    "s",
+    "a",
+    "l",
+    "a",
+    "m",
+    "Space"
+   ],
+   "committed": "سالام ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "space top-candidate idle",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nspace = \"top-candidate\"\n"
+   },
+   "keys": [
+    "Space"
+   ],
+   "committed": " ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "minimal no list so digit",
+   "config": "minimal",
+   "keys": [
+    "s",
+    "2"
+   ],
+   "committed": "س۲",
+   "preedit": "",
+   "notes": "minimal has no ambiguity, so the number is a digit"
+  },
+  {
+   "type": "session",
+   "name": "minimal word session",
+   "config": "minimal",
+   "keys": [
+    "s",
+    "a",
+    "b",
+    "z",
+    "Space"
+   ],
+   "committed": "سابز ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "minimal gh session",
+   "config": "minimal",
+   "keys": [
+    "g",
+    "h",
+    "Space"
+   ],
+   "committed": "غ ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "minimal down passes",
+   "config": "minimal",
+   "keys": [
+    "s",
+    "Down"
+   ],
+   "committed": "س",
+   "preedit": "",
+   "notes": "no list, so Down commits and passes"
+  },
+  {
+   "type": "session",
+   "name": "raw override in session",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[map.digraphs]\nsh = [\"ص\",\"ش\"]\n"
+   },
+   "keys": [
+    "s",
+    "h",
+    "2"
+   ],
+   "committed": "ش",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "ascii digits and persian punctuation",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ndigits = \"ascii\"\n"
+   },
+   "keys": [
+    "1",
+    ",",
+    "2"
+   ],
+   "committed": "1،2",
+   "preedit": ""
+  }
+ ]
+}

@@ -1,0 +1,14 @@
+<!-- Windows Sandbox config (build.ps1 fills in HostFolder and copies this to dist\).
+     Double-click dist\pime.wsb. Inside the sandbox, open an elevated PowerShell and run
+       powershell -ExecutionPolicy Bypass -File C:\pime\scripts\register.ps1
+     Everything is discarded when the sandbox closes. Networking is off. -->
+<Configuration>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>@DIST@</HostFolder>
+      <SandboxFolder>C:\pime</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <Networking>Disable</Networking>
+</Configuration>

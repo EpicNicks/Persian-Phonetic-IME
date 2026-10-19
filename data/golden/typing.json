@@ -1,0 +1,1240 @@
+{
+ "version": 1,
+ "cases": [
+  {
+   "type": "typing",
+   "name": "single a",
+   "config": "qamooscheh",
+   "input": "a",
+   "preedit_after_each": [
+    "ا"
+   ],
+   "final_preedit": "ا",
+   "candidates_after_last": [
+    "ا",
+    "آ"
+   ],
+   "notes": "candidates_after_last is the alternates of the last token, null when that token has a single candidate"
+  },
+  {
+   "type": "typing",
+   "name": "single e",
+   "config": "qamooscheh",
+   "input": "e",
+   "preedit_after_each": [
+    "ا"
+   ],
+   "final_preedit": "ا",
+   "candidates_after_last": [
+    "ا",
+    "آ"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "single i",
+   "config": "qamooscheh",
+   "input": "i",
+   "preedit_after_each": [
+    "ی"
+   ],
+   "final_preedit": "ی",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single o",
+   "config": "qamooscheh",
+   "input": "o",
+   "preedit_after_each": [
+    "و"
+   ],
+   "final_preedit": "و",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single u",
+   "config": "qamooscheh",
+   "input": "u",
+   "preedit_after_each": [
+    "و"
+   ],
+   "final_preedit": "و",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single b",
+   "config": "qamooscheh",
+   "input": "b",
+   "preedit_after_each": [
+    "ب"
+   ],
+   "final_preedit": "ب",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single p",
+   "config": "qamooscheh",
+   "input": "p",
+   "preedit_after_each": [
+    "پ"
+   ],
+   "final_preedit": "پ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single t",
+   "config": "qamooscheh",
+   "input": "t",
+   "preedit_after_each": [
+    "ت"
+   ],
+   "final_preedit": "ت",
+   "candidates_after_last": [
+    "ت",
+    "ط"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "single s",
+   "config": "qamooscheh",
+   "input": "s",
+   "preedit_after_each": [
+    "س"
+   ],
+   "final_preedit": "س",
+   "candidates_after_last": [
+    "س",
+    "ص",
+    "ث"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "single j",
+   "config": "qamooscheh",
+   "input": "j",
+   "preedit_after_each": [
+    "ج"
+   ],
+   "final_preedit": "ج",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single h",
+   "config": "qamooscheh",
+   "input": "h",
+   "preedit_after_each": [
+    "ه"
+   ],
+   "final_preedit": "ه",
+   "candidates_after_last": [
+    "ه",
+    "ح"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "single d",
+   "config": "qamooscheh",
+   "input": "d",
+   "preedit_after_each": [
+    "د"
+   ],
+   "final_preedit": "د",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single z",
+   "config": "qamooscheh",
+   "input": "z",
+   "preedit_after_each": [
+    "ز"
+   ],
+   "final_preedit": "ز",
+   "candidates_after_last": [
+    "ز",
+    "ذ",
+    "ض",
+    "ظ"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "single r",
+   "config": "qamooscheh",
+   "input": "r",
+   "preedit_after_each": [
+    "ر"
+   ],
+   "final_preedit": "ر",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single f",
+   "config": "qamooscheh",
+   "input": "f",
+   "preedit_after_each": [
+    "ف"
+   ],
+   "final_preedit": "ف",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single k",
+   "config": "qamooscheh",
+   "input": "k",
+   "preedit_after_each": [
+    "ک"
+   ],
+   "final_preedit": "ک",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single g",
+   "config": "qamooscheh",
+   "input": "g",
+   "preedit_after_each": [
+    "گ"
+   ],
+   "final_preedit": "گ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single l",
+   "config": "qamooscheh",
+   "input": "l",
+   "preedit_after_each": [
+    "ل"
+   ],
+   "final_preedit": "ل",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single m",
+   "config": "qamooscheh",
+   "input": "m",
+   "preedit_after_each": [
+    "م"
+   ],
+   "final_preedit": "م",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single n",
+   "config": "qamooscheh",
+   "input": "n",
+   "preedit_after_each": [
+    "ن"
+   ],
+   "final_preedit": "ن",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single v",
+   "config": "qamooscheh",
+   "input": "v",
+   "preedit_after_each": [
+    "و"
+   ],
+   "final_preedit": "و",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single w",
+   "config": "qamooscheh",
+   "input": "w",
+   "preedit_after_each": [
+    "و"
+   ],
+   "final_preedit": "و",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single x",
+   "config": "qamooscheh",
+   "input": "x",
+   "preedit_after_each": [
+    "خ"
+   ],
+   "final_preedit": "خ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single y",
+   "config": "qamooscheh",
+   "input": "y",
+   "preedit_after_each": [
+    "ی"
+   ],
+   "final_preedit": "ی",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "single q",
+   "config": "qamooscheh",
+   "input": "q",
+   "preedit_after_each": [
+    "ق"
+   ],
+   "final_preedit": "ق",
+   "candidates_after_last": [
+    "ق",
+    "غ"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "single '",
+   "config": "qamooscheh",
+   "input": "'",
+   "preedit_after_each": [
+    "ع"
+   ],
+   "final_preedit": "ع",
+   "candidates_after_last": [
+    "ع",
+    "ء"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "digraph kh",
+   "config": "qamooscheh",
+   "input": "kh",
+   "preedit_after_each": [
+    "ک",
+    "خ"
+   ],
+   "final_preedit": "خ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "digraph gh",
+   "config": "qamooscheh",
+   "input": "gh",
+   "preedit_after_each": [
+    "گ",
+    "غ"
+   ],
+   "final_preedit": "غ",
+   "candidates_after_last": [
+    "غ",
+    "ق"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "digraph ch",
+   "config": "qamooscheh",
+   "input": "ch",
+   "preedit_after_each": [
+    "c",
+    "چ"
+   ],
+   "final_preedit": "چ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "digraph sh",
+   "config": "qamooscheh",
+   "input": "sh",
+   "preedit_after_each": [
+    "س",
+    "ش"
+   ],
+   "final_preedit": "ش",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "digraph zh",
+   "config": "qamooscheh",
+   "input": "zh",
+   "preedit_after_each": [
+    "ز",
+    "ژ"
+   ],
+   "final_preedit": "ژ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "c alone is visible pending c",
+   "config": "qamooscheh",
+   "input": "c",
+   "preedit_after_each": [
+    "c"
+   ],
+   "final_preedit": "c",
+   "candidates_after_last": null,
+   "notes": "c='none' (default): lone c renders as the Latin letter c (pending attribute), never swallowed. Differs from web/Android which buffer it silently."
+  },
+  {
+   "type": "typing",
+   "name": "ch after pending c",
+   "config": "qamooscheh",
+   "input": "ch",
+   "preedit_after_each": [
+    "c",
+    "چ"
+   ],
+   "final_preedit": "چ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "c then vowel keeps pending c",
+   "config": "qamooscheh",
+   "input": "ca",
+   "preedit_after_each": [
+    "c",
+    "cا"
+   ],
+   "final_preedit": "cا",
+   "candidates_after_last": [
+    "ا",
+    "آ"
+   ],
+   "notes": "pending c stays in the preedit as Latin 'c' (Android would drop it)"
+  },
+  {
+   "type": "typing",
+   "name": "kt starter without h",
+   "config": "qamooscheh",
+   "input": "kt",
+   "preedit_after_each": [
+    "ک",
+    "کت"
+   ],
+   "final_preedit": "کت",
+   "candidates_after_last": [
+    "ت",
+    "ط"
+   ],
+   "notes": "from Android test: starter not followed by h"
+  },
+  {
+   "type": "typing",
+   "name": "ss",
+   "config": "qamooscheh",
+   "input": "ss",
+   "preedit_after_each": [
+    "س",
+    "سس"
+   ],
+   "final_preedit": "سس",
+   "candidates_after_last": [
+    "س",
+    "ص",
+    "ث"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "word khub",
+   "config": "qamooscheh",
+   "input": "khub",
+   "preedit_after_each": [
+    "ک",
+    "خ",
+    "خو",
+    "خوب"
+   ],
+   "final_preedit": "خوب",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "word zhila",
+   "config": "qamooscheh",
+   "input": "zhila",
+   "preedit_after_each": [
+    "ز",
+    "ژ",
+    "ژی",
+    "ژیل",
+    "ژیلا"
+   ],
+   "final_preedit": "ژیلا",
+   "candidates_after_last": [
+    "ا",
+    "آ"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "word zhaleh e aliases a",
+   "config": "qamooscheh",
+   "input": "zhaleh",
+   "preedit_after_each": [
+    "ز",
+    "ژ",
+    "ژا",
+    "ژال",
+    "ژالا",
+    "ژالاه"
+   ],
+   "final_preedit": "ژالاه",
+   "candidates_after_last": [
+    "ه",
+    "ح"
+   ],
+   "notes": "e is an alias of a, not word-final heh (Android test)"
+  },
+  {
+   "type": "typing",
+   "name": "word shir",
+   "config": "qamooscheh",
+   "input": "shir",
+   "preedit_after_each": [
+    "س",
+    "ش",
+    "شی",
+    "شیر"
+   ],
+   "final_preedit": "شیر",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "word salam",
+   "config": "qamooscheh",
+   "input": "salam",
+   "preedit_after_each": [
+    "س",
+    "سا",
+    "سال",
+    "سالا",
+    "سالام"
+   ],
+   "final_preedit": "سالام",
+   "candidates_after_last": null,
+   "notes": "short vowels are written as alef (no dictionary in v1)"
+  },
+  {
+   "type": "typing",
+   "name": "word shab",
+   "config": "qamooscheh",
+   "input": "shab",
+   "preedit_after_each": [
+    "س",
+    "ش",
+    "شا",
+    "شاب"
+   ],
+   "final_preedit": "شاب",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "word sabz",
+   "config": "qamooscheh",
+   "input": "sabz",
+   "preedit_after_each": [
+    "س",
+    "سا",
+    "ساب",
+    "سابز"
+   ],
+   "final_preedit": "سابز",
+   "candidates_after_last": [
+    "ز",
+    "ذ",
+    "ض",
+    "ظ"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "word chub",
+   "config": "qamooscheh",
+   "input": "chub",
+   "preedit_after_each": [
+    "c",
+    "چ",
+    "چو",
+    "چوب"
+   ],
+   "final_preedit": "چوب",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "apostrophe",
+   "config": "qamooscheh",
+   "input": "'",
+   "preedit_after_each": [
+    "ع"
+   ],
+   "final_preedit": "ع",
+   "candidates_after_last": [
+    "ع",
+    "ء"
+   ],
+   "notes": "from Android test"
+  },
+  {
+   "type": "typing",
+   "name": "apostrophe mid word",
+   "config": "qamooscheh",
+   "input": "ma'",
+   "preedit_after_each": [
+    "م",
+    "ما",
+    "ماع"
+   ],
+   "final_preedit": "ماع",
+   "candidates_after_last": [
+    "ع",
+    "ء"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "shh is sh then h",
+   "config": "qamooscheh",
+   "input": "shh",
+   "preedit_after_each": [
+    "س",
+    "ش",
+    "شه"
+   ],
+   "final_preedit": "شه",
+   "candidates_after_last": [
+    "ه",
+    "ح"
+   ],
+   "notes": "longest match: sh, then h"
+  },
+  {
+   "type": "typing",
+   "name": "sxh keeps s then x then h",
+   "config": "qamooscheh",
+   "input": "sxh",
+   "preedit_after_each": [
+    "س",
+    "سخ",
+    "سخه"
+   ],
+   "final_preedit": "سخه",
+   "candidates_after_last": [
+    "ه",
+    "ح"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "digraph gh in word",
+   "config": "qamooscheh",
+   "input": "ghalam",
+   "preedit_after_each": [
+    "گ",
+    "غ",
+    "غا",
+    "غال",
+    "غالا",
+    "غالام"
+   ],
+   "final_preedit": "غالام",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "gh=ghain explicit",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ngh = \"ghain\"\n"
+   },
+   "input": "gh",
+   "preedit_after_each": [
+    "گ",
+    "غ"
+   ],
+   "final_preedit": "غ",
+   "candidates_after_last": [
+    "غ",
+    "ق"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "gh=qaf",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ngh = \"qaf\"\n"
+   },
+   "input": "gh",
+   "preedit_after_each": [
+    "گ",
+    "ق"
+   ],
+   "final_preedit": "ق",
+   "candidates_after_last": [
+    "ق",
+    "غ"
+   ],
+   "notes": "gh=qaf promotes ق to index 0; غ stays an alternate"
+  },
+  {
+   "type": "typing",
+   "name": "gh=qaf leaves g alone",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ngh = \"qaf\"\n"
+   },
+   "input": "g",
+   "preedit_after_each": [
+    "گ"
+   ],
+   "final_preedit": "گ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "q default is qaf",
+   "config": "qamooscheh",
+   "input": "q",
+   "preedit_after_each": [
+    "ق"
+   ],
+   "final_preedit": "ق",
+   "candidates_after_last": [
+    "ق",
+    "غ"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "q=ghain",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nq = \"ghain\"\n"
+   },
+   "input": "q",
+   "preedit_after_each": [
+    "غ"
+   ],
+   "final_preedit": "غ",
+   "candidates_after_last": [
+    "غ",
+    "ق"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "q=ghain leaves gh alone",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nq = \"ghain\"\n"
+   },
+   "input": "gh",
+   "preedit_after_each": [
+    "گ",
+    "غ"
+   ],
+   "final_preedit": "غ",
+   "candidates_after_last": [
+    "غ",
+    "ق"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "gh=qaf and q=ghain",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ngh = \"qaf\"\nq = \"ghain\"\n"
+   },
+   "input": "qgh",
+   "preedit_after_each": [
+    "غ",
+    "غگ",
+    "غق"
+   ],
+   "final_preedit": "غق",
+   "candidates_after_last": [
+    "ق",
+    "غ"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "c=k lone",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"k\"\n"
+   },
+   "input": "c",
+   "preedit_after_each": [
+    "ک"
+   ],
+   "final_preedit": "ک",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "c=k ch still che",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"k\"\n"
+   },
+   "input": "ch",
+   "preedit_after_each": [
+    "ک",
+    "چ"
+   ],
+   "final_preedit": "چ",
+   "candidates_after_last": null,
+   "notes": "whole preedit is re-tokenised, so c+h is چ not ک+ه"
+  },
+  {
+   "type": "typing",
+   "name": "c=k word",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"k\"\n"
+   },
+   "input": "cab",
+   "preedit_after_each": [
+    "ک",
+    "کا",
+    "کاب"
+   ],
+   "final_preedit": "کاب",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "c=k word with ch",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"k\"\n"
+   },
+   "input": "chacun",
+   "preedit_after_each": [
+    "ک",
+    "چ",
+    "چا",
+    "چاک",
+    "چاکو",
+    "چاکون"
+   ],
+   "final_preedit": "چاکون",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "c=s lone",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"s\"\n"
+   },
+   "input": "c",
+   "preedit_after_each": [
+    "س"
+   ],
+   "final_preedit": "س",
+   "candidates_after_last": [
+    "س",
+    "ص",
+    "ث"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "c=s ch still che",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"s\"\n"
+   },
+   "input": "ch",
+   "preedit_after_each": [
+    "س",
+    "چ"
+   ],
+   "final_preedit": "چ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "c=s word",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"s\"\n"
+   },
+   "input": "cab",
+   "preedit_after_each": [
+    "س",
+    "سا",
+    "ساب"
+   ],
+   "final_preedit": "ساب",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "c=none explicit ch",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"none\"\n"
+   },
+   "input": "ch",
+   "preedit_after_each": [
+    "c",
+    "چ"
+   ],
+   "final_preedit": "چ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "c=none then s",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nc = \"none\"\n"
+   },
+   "input": "cs",
+   "preedit_after_each": [
+    "c",
+    "cس"
+   ],
+   "final_preedit": "cس",
+   "candidates_after_last": [
+    "س",
+    "ص",
+    "ث"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "kh and ch explicit",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nkh = \"khe\"\nch = \"che\"\n"
+   },
+   "input": "khch",
+   "preedit_after_each": [
+    "ک",
+    "خ",
+    "خc",
+    "خچ"
+   ],
+   "final_preedit": "خچ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "s_order",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ns_order = [\"ص\",\"س\",\"ث\"]\n"
+   },
+   "input": "s",
+   "preedit_after_each": [
+    "ص"
+   ],
+   "final_preedit": "ص",
+   "candidates_after_last": [
+    "ص",
+    "س",
+    "ث"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "z_order",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\nz_order = [\"ض\",\"ز\"]\n"
+   },
+   "input": "z",
+   "preedit_after_each": [
+    "ض"
+   ],
+   "final_preedit": "ض",
+   "candidates_after_last": [
+    "ض",
+    "ز"
+   ],
+   "notes": "z_order replaces the z list wholesale (subsets allowed)"
+  },
+  {
+   "type": "typing",
+   "name": "c=s follows s_order",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ns_order = [\"ص\",\"س\",\"ث\"]\nc = \"s\"\n"
+   },
+   "input": "c",
+   "preedit_after_each": [
+    "ص"
+   ],
+   "final_preedit": "ص",
+   "candidates_after_last": [
+    "ص",
+    "س",
+    "ث"
+   ],
+   "notes": "options expand in the order s_order, z_order, gh, q, c, so c=s copies the reordered s"
+  },
+  {
+   "type": "typing",
+   "name": "raw digraph override",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[map.digraphs]\nsh = [\"ص\"]\n"
+   },
+   "input": "sh",
+   "preedit_after_each": [
+    "س",
+    "ص"
+   ],
+   "final_preedit": "ص",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "raw single override",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[map.singles]\nv = [\"ف\"]\n"
+   },
+   "input": "vi",
+   "preedit_after_each": [
+    "ف",
+    "فی"
+   ],
+   "final_preedit": "فی",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "raw trigraph",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[map.trigraphs]\ntch = [\"چ\"]\n"
+   },
+   "input": "tcha",
+   "preedit_after_each": [
+    "ت",
+    "تc",
+    "چ",
+    "چا"
+   ],
+   "final_preedit": "چا",
+   "candidates_after_last": [
+    "ا",
+    "آ"
+   ],
+   "notes": "longest match: tch beats t + ch"
+  },
+  {
+   "type": "typing",
+   "name": "raw trigraph with candidates",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[map.trigraphs]\ntch = [\"چ\",\"ج\"]\n"
+   },
+   "input": "tch",
+   "preedit_after_each": [
+    "ت",
+    "تc",
+    "چ"
+   ],
+   "final_preedit": "چ",
+   "candidates_after_last": [
+    "چ",
+    "ج"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "raw map applied after options",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[options]\ngh = \"qaf\"\n[map.digraphs]\ngh = [\"غ\"]\n"
+   },
+   "input": "gh",
+   "preedit_after_each": [
+    "گ",
+    "غ"
+   ],
+   "final_preedit": "غ",
+   "candidates_after_last": null,
+   "notes": "resolution order: preset, options, then raw map; raw wins"
+  },
+  {
+   "type": "typing",
+   "name": "raw map new key",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[map.digraphs]\ndh = [\"ذ\"]\n"
+   },
+   "input": "dh",
+   "preedit_after_each": [
+    "د",
+    "ذ"
+   ],
+   "final_preedit": "ذ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "raw map zwnj candidate",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[map.singles]\n\"-\" = [\"\u200c\"]\n"
+   },
+   "input": "a-b",
+   "preedit_after_each": [
+    "ا",
+    "ا\u200c",
+    "ا\u200cب"
+   ],
+   "final_preedit": "ا\u200cب",
+   "candidates_after_last": null,
+   "notes": "ZWNJ allowed as a candidate; key '-' becomes a letter key"
+  },
+  {
+   "type": "typing",
+   "name": "raw single with extra alternate",
+   "config": {
+    "preset": "qamooscheh",
+    "toml": "[map.singles]\nb = [\"ب\",\"پ\"]\n"
+   },
+   "input": "b",
+   "preedit_after_each": [
+    "ب"
+   ],
+   "final_preedit": "ب",
+   "candidates_after_last": [
+    "ب",
+    "پ"
+   ]
+  },
+  {
+   "type": "typing",
+   "name": "minimal s",
+   "config": "minimal",
+   "input": "s",
+   "preedit_after_each": [
+    "س"
+   ],
+   "final_preedit": "س",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "minimal gh",
+   "config": "minimal",
+   "input": "gh",
+   "preedit_after_each": [
+    "گ",
+    "غ"
+   ],
+   "final_preedit": "غ",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "minimal q",
+   "config": "minimal",
+   "input": "q",
+   "preedit_after_each": [
+    "ق"
+   ],
+   "final_preedit": "ق",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "minimal a",
+   "config": "minimal",
+   "input": "a",
+   "preedit_after_each": [
+    "ا"
+   ],
+   "final_preedit": "ا",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "minimal word",
+   "config": "minimal",
+   "input": "sabz",
+   "preedit_after_each": [
+    "س",
+    "سا",
+    "ساب",
+    "سابز"
+   ],
+   "final_preedit": "سابز",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "minimal khub",
+   "config": "minimal",
+   "input": "khub",
+   "preedit_after_each": [
+    "ک",
+    "خ",
+    "خو",
+    "خوب"
+   ],
+   "final_preedit": "خوب",
+   "candidates_after_last": null
+  },
+  {
+   "type": "typing",
+   "name": "minimal gh=qaf",
+   "config": {
+    "preset": "minimal",
+    "toml": "[options]\ngh = \"qaf\"\n"
+   },
+   "input": "gh",
+   "preedit_after_each": [
+    "گ",
+    "ق"
+   ],
+   "final_preedit": "ق",
+   "candidates_after_last": [
+    "ق",
+    "غ"
+   ],
+   "notes": "promote inserts ق at index 0 when absent, so this option re-introduces an alternate even in minimal"
+  },
+  {
+   "type": "typing",
+   "name": "minimal apostrophe",
+   "config": "minimal",
+   "input": "'",
+   "preedit_after_each": [
+    "ع"
+   ],
+   "final_preedit": "ع",
+   "candidates_after_last": null
+  }
+ ]
+}

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust (stable, x64 + i686)
+        run: |
+          rustup toolchain install stable --profile minimal --component rustfmt --component clippy --target i686-pc-windows-msvc
+          rustup default stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Build i686 (workspace)
+        run: cargo build --workspace --target i686-pc-windows-msvc
+
+      - name: Build spike (only if present)
+        shell: bash
+        run: |
+          if [ -f spike/Cargo.toml ]; then
+            cargo build --manifest-path spike/Cargo.toml
+          else
+            echo "spike/Cargo.toml not found; skipping"
+          fi

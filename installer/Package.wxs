@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Persian Phonetic IME: per-machine MSI (WiX v5). Built by installer/build.ps1; see installer/README.md.
+
+  Layout:  %ProgramFiles%\Persian Phonetic IME\<Version>\
+             PersianPhoneticIme.<Version>.x64.dll   TIP, 64-bit
+             PersianPhoneticIme.<Version>.x86.dll   TIP, 32-bit (same CLSID, WOW64 registry view)
+             pime-setup.x64.exe / pime-setup.x86.exe  registration helpers (crates/pime-setup)
+             pime-settings.exe                       settings app (crates/pime-settings)
+  Presets are compiled into the DLL, so there are no data files.
+
+  Registration: deferred, elevated (SYSTEM) custom actions run the helper of the matching bitness,
+  which calls the DLL's DllRegisterServer / DllUnregisterServer (InprocServer32 + RegisterProfile +
+  categories, implemented in the TIP).
+  Per-user enable (InstallLayoutOrTip) must run as the user, never as SYSTEM: an immediate
+  (impersonated) action after InstallFinalize for the installing user, plus opt-in Active Setup
+  (ENABLE_ALL_USERS=1) for every other user at their next logon. See README "Per-user enable".
+
+  Preprocessor variables (all passed by build.ps1; GUIDs are read from crates/pime-setup/src/guids.rs):
+    Version, StageDir, TipClsid, TipProfile, UpgradeCode, ActiveSetupId, [Placeholder=0|1], [GuidArgs]
+-->
+<?ifndef Version?><?error Define Version (e.g. -d Version=0.1.0)?><?endif?>
+<?ifndef StageDir?><?error Define StageDir (folder with the staged payload)?><?endif?>
+<?ifndef TipClsid?><?error Define TipClsid (from crates/pime-setup/src/guids.rs)?><?endif?>
+<?ifndef TipProfile?><?error Define TipProfile?><?endif?>
+<?ifndef UpgradeCode?><?error Define UpgradeCode?><?endif?>
+<?ifndef ActiveSetupId?><?error Define ActiveSetupId?><?endif?>
+<?ifndef Placeholder?><?define Placeholder = 0?><?endif?>
+<?ifndef GuidArgs?><?define GuidArgs = ""?><?endif?>
+<?if $(Placeholder) = 1?>
+  <?define NameSuffix = " (PLACEHOLDER BUILD - spike DLLs, VM only)"?>
+<?else?>
+  <?define NameSuffix = ""?>
+<?endif?>
+<?define DllX64Name = "PersianPhoneticIme.$(Version).x64.dll"?>
+<?define DllX86Name = "PersianPhoneticIme.$(Version).x86.dll"?>
+
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package Name="Persian Phonetic IME$(NameSuffix)"
+           Manufacturer="Persian Phonetic IME"
+           Version="$(Version)"
+           UpgradeCode="$(UpgradeCode)"
+           Scope="perMachine"
+           Language="1033"
+           InstallerVersion="500"
+           Compressed="yes">
+
+    <SummaryInformation Description="Persian Phonetic IME $(Version)$(NameSuffix)" />
+
+    <!--
+      Upgrade order (afterInstallExecute): the new version's files are installed and registered
+      first, which repoints InprocServer32 at the new versioned DLL; only then is the old product
+      removed. Its unregister/disable actions are skipped (UPGRADINGPRODUCTCODE), so the CLSID and
+      every user's list entry survive. Old DLLs still loaded by running apps are removed at reboot
+      (Windows Installer's in-use handling, plus pime-setup /cleanup-old as a safety net).
+    -->
+    <MajorUpgrade Schedule="afterInstallExecute"
+                  DowngradeErrorMessage="A newer version of Persian Phonetic IME is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Launch Condition="Installed OR VersionNT64" Message="Persian Phonetic IME needs 64-bit Windows 10 or later." />
+    <Launch Condition="Installed OR VersionNT &gt;= 603" Message="Persian Phonetic IME needs Windows 10 or later." />
+
+    <!-- The TIP DLL is loaded by nearly every process; a Restart Manager "close these apps" prompt
+         would list all of them. Versioned file names make closing them unnecessary. -->
+    <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
+    <Property Id="ARPNOMODIFY" Value="1" />
+    <Property Id="ARPCOMMENTS" Value="Phonetic Persian input method (type Persian from Latin letters)." />
+
+    <!-- Per-user enable switches (public, can be set on the msiexec command line). -->
+    <Property Id="ENABLE_FOR_INSTALLING_USER" Value="1" Secure="yes" />
+    <Property Id="ENABLE_ALL_USERS" Value="0" Secure="yes" />
+
+    <!-- Current registrations, used by rollback to restore the previous version's InprocServer32. -->
+    <Property Id="PREVDLLX64" Secure="yes">
+      <RegistrySearch Id="PrevDllX64" Root="HKLM" Key="Software\Classes\CLSID\$(TipClsid)\InprocServer32"
+                      Type="raw" Bitness="always64" />
+    </Property>
+    <Property Id="PREVDLLX86" Secure="yes">
+      <RegistrySearch Id="PrevDllX86" Root="HKLM" Key="Software\Classes\CLSID\$(TipClsid)\InprocServer32"
+                      Type="raw" Bitness="always32" />
+    </Property>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="PRODUCTROOT" Name="Persian Phonetic IME">
+        <Directory Id="INSTALLFOLDER" Name="$(Version)" />
+      </Directory>
+    </StandardDirectory>
+
+    <ComponentGroup Id="Payload" Directory="INSTALLFOLDER">
+      <Component Id="TipX64">
+        <File Id="DllX64" Name="$(DllX64Name)" Source="$(StageDir)\$(DllX64Name)" KeyPath="yes" />
+      </Component>
+      <Component Id="TipX86">
+        <File Id="DllX86" Name="$(DllX86Name)" Source="$(StageDir)\$(DllX86Name)" KeyPath="yes" />
+      </Component>
+      <Component Id="SetupX64">
+        <File Id="SetupX64" Name="pime-setup.x64.exe" Source="$(StageDir)\pime-setup.x64.exe" KeyPath="yes">
+          <!-- Manual per-user enable for accounts the installer did not cover. -->
+          <Shortcut Id="EnableShortcut" Directory="ProgramMenuFolder"
+                    Name="Add Persian Phonetic keyboard for me" Arguments="/enable-user $(GuidArgs)"
+                    Description="Adds Persian Phonetic IME to your input methods (Win+Space)."
+                    WorkingDirectory="INSTALLFOLDER" Advertise="no" />
+        </File>
+        <RemoveFolder Id="RemoveProductRoot" Directory="PRODUCTROOT" On="uninstall" />
+      </Component>
+      <Component Id="SetupX86">
+        <File Id="SetupX86" Name="pime-setup.x86.exe" Source="$(StageDir)\pime-setup.x86.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="Settings">
+        <File Id="SettingsExe" Name="pime-settings.exe" Source="$(StageDir)\pime-settings.exe" KeyPath="yes">
+          <Shortcut Id="SettingsShortcut" Directory="ProgramMenuFolder" Name="Persian Phonetic IME Settings"
+                    WorkingDirectory="INSTALLFOLDER" Advertise="no" />
+        </File>
+      </Component>
+<?if $(Placeholder) = 1?>
+      <Component Id="PlaceholderNote">
+        <File Id="PlaceholderTxt" Name="PLACEHOLDER.txt" Source="$(StageDir)\PLACEHOLDER.txt" KeyPath="yes" />
+      </Component>
+<?endif?>
+    </ComponentGroup>
+
+    <!-- Opt-in: run /enable-user once per user at their next logon (Active Setup runs StubPath in
+         the user's context). Version stays 1,0,0,0 so upgrades do not re-add the keyboard for
+         users who removed it. -->
+    <Component Id="ActiveSetup" Directory="INSTALLFOLDER" Condition="ENABLE_ALL_USERS = &quot;1&quot;">
+      <RegistryKey Root="HKLM" Key="SOFTWARE\Microsoft\Active Setup\Installed Components\$(ActiveSetupId)">
+        <RegistryValue Type="string" Value="Persian Phonetic IME" KeyPath="yes" />
+        <RegistryValue Name="StubPath" Type="string"
+                       Value="&quot;[INSTALLFOLDER]pime-setup.x64.exe&quot; /enable-user /quiet $(GuidArgs)" />
+        <RegistryValue Name="Version" Type="string" Value="1,0,0,0" />
+        <RegistryValue Name="IsInstalled" Type="integer" Value="1" />
+      </RegistryKey>
+    </Component>
+
+    <Feature Id="Main" Title="Persian Phonetic IME" AllowAbsent="no">
+      <ComponentGroupRef Id="Payload" />
+      <ComponentRef Id="ActiveSetup" />
+    </Feature>
+
+    <!--
+      Custom actions. Command lines use [INSTALLFOLDER]<name> rather than [#FileId] because
+      [#FileId] is empty for files whose component is being removed (uninstall).
+      WixQuietExec64 (WiX Util extension) runs the console helper without a window and copies its
+      output into the MSI log (msiexec /l*v).
+    -->
+    <?define Helper64 = [INSTALLFOLDER]pime-setup.x64.exe?>
+    <?define Helper86 = [INSTALLFOLDER]pime-setup.x86.exe?>
+    <?define Dll64 = [INSTALLFOLDER]$(DllX64Name)?>
+    <?define Dll86 = [INSTALLFOLDER]$(DllX86Name)?>
+
+    <!-- Install / repair / upgrade: register x86 first, then x64, so the profile's icon file
+         (written by the last RegisterProfile call) is the x64 DLL. -->
+    <CustomAction Id="SetRegisterX86" Property="RegisterX86" Value="&quot;$(Helper86)&quot; /register &quot;$(Dll86)&quot;" />
+    <CustomAction Id="RegisterX86" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="deferred" Impersonate="no" Return="check" />
+    <CustomAction Id="SetRegisterX64" Property="RegisterX64" Value="&quot;$(Helper64)&quot; /register &quot;$(Dll64)&quot;" />
+    <CustomAction Id="RegisterX64" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="deferred" Impersonate="no" Return="check" />
+
+    <!-- Rollback of registration: restore the previous version's registration if there was one,
+         otherwise unregister. -->
+    <CustomAction Id="SetRollbackRegX86" Property="RollbackRegX86" Value="&quot;$(Helper86)&quot; /unregister &quot;$(Dll86)&quot;" />
+    <CustomAction Id="RollbackRegX86" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+    <CustomAction Id="SetRollbackRestoreX86Cmd" Property="RollbackRestoreX86"
+                  Value="&quot;$(Helper86)&quot; /register &quot;[PREVDLLX86]&quot;" />
+    <CustomAction Id="RollbackRestoreX86" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+    <CustomAction Id="SetRollbackRegX64" Property="RollbackRegX64" Value="&quot;$(Helper64)&quot; /unregister &quot;$(Dll64)&quot;" />
+    <CustomAction Id="RollbackRegX64" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+    <CustomAction Id="SetRollbackRestoreX64Cmd" Property="RollbackRestoreX64"
+                  Value="&quot;$(Helper64)&quot; /register &quot;[PREVDLLX64]&quot;" />
+    <CustomAction Id="RollbackRestoreX64" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+
+    <!-- After the old product is gone: delete leftovers of older versions or schedule them for
+         deletion at reboot (MoveFileEx MOVEFILE_DELAY_UNTIL_REBOOT). "[PRODUCTROOT]." keeps the
+         trailing backslash from escaping the closing quote. -->
+    <CustomAction Id="SetCleanupOld" Property="CleanupOld"
+                  Value="&quot;$(Helper64)&quot; /cleanup-old &quot;[PRODUCTROOT].&quot; $(Version)" />
+    <CustomAction Id="CleanupOld" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+
+    <!-- Uninstall (not upgrade): unregister x86, then x64; rollback re-registers. -->
+    <CustomAction Id="SetUnregisterX86" Property="UnregisterX86" Value="&quot;$(Helper86)&quot; /unregister &quot;$(Dll86)&quot;" />
+    <CustomAction Id="UnregisterX86" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+    <CustomAction Id="SetUnregisterX64" Property="UnregisterX64" Value="&quot;$(Helper64)&quot; /unregister &quot;$(Dll64)&quot;" />
+    <CustomAction Id="UnregisterX64" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="deferred" Impersonate="no" Return="ignore" />
+    <CustomAction Id="SetRollbackUnregX86" Property="RollbackUnregX86" Value="&quot;$(Helper86)&quot; /register &quot;$(Dll86)&quot;" />
+    <CustomAction Id="RollbackUnregX86" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+    <CustomAction Id="SetRollbackUnregX64" Property="RollbackUnregX64" Value="&quot;$(Helper64)&quot; /register &quot;$(Dll64)&quot;" />
+    <CustomAction Id="RollbackUnregX64" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="rollback" Impersonate="no" Return="ignore" />
+
+    <!-- Per-user list, in the user's context (immediate actions run impersonated). -->
+    <CustomAction Id="SetEnableUserCmd" Property="WixQuietExec64CmdLine"
+                  Value="&quot;$(Helper64)&quot; /enable-user $(GuidArgs)" />
+    <CustomAction Id="EnableUser" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="immediate" Return="ignore" />
+    <CustomAction Id="SetDisableUserCmd" Property="WixQuietExec64CmdLine"
+                  Value="&quot;$(Helper64)&quot; /disable-user $(GuidArgs)" />
+    <CustomAction Id="DisableUser" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="immediate" Return="ignore" />
+
+    <?define Installing = NOT REMOVE~="ALL"?>
+    <?define Uninstalling = REMOVE~="ALL" AND NOT UPGRADINGPRODUCTCODE?>
+    <?define NotSystem = NOT (UserSID = "S-1-5-18")?>
+
+    <InstallExecuteSequence>
+      <!-- uninstall: per-user disable while the profile still exists -->
+      <Custom Action="SetDisableUserCmd" Before="DisableUser" Condition="$(Uninstalling) AND $(NotSystem)" />
+      <Custom Action="DisableUser" Before="InstallInitialize" Condition="$(Uninstalling) AND $(NotSystem)" />
+
+      <!-- uninstall: unregister before the files go -->
+      <Custom Action="SetRollbackUnregX86" Before="RollbackUnregX86" Condition="$(Uninstalling)" />
+      <Custom Action="RollbackUnregX86" Before="UnregisterX86" Condition="$(Uninstalling)" />
+      <Custom Action="SetUnregisterX86" Before="UnregisterX86" Condition="$(Uninstalling)" />
+      <Custom Action="UnregisterX86" Before="SetRollbackUnregX64" Condition="$(Uninstalling)" />
+      <Custom Action="SetRollbackUnregX64" Before="RollbackUnregX64" Condition="$(Uninstalling)" />
+      <Custom Action="RollbackUnregX64" Before="UnregisterX64" Condition="$(Uninstalling)" />
+      <Custom Action="SetUnregisterX64" Before="UnregisterX64" Condition="$(Uninstalling)" />
+      <Custom Action="UnregisterX64" Before="RemoveFiles" Condition="$(Uninstalling)" />
+
+      <!-- install / repair / upgrade: register after the files are in place -->
+      <Custom Action="SetRollbackRegX86" After="InstallFiles" Condition="$(Installing) AND NOT PREVDLLX86" />
+      <Custom Action="RollbackRegX86" After="SetRollbackRegX86" Condition="$(Installing) AND NOT PREVDLLX86" />
+      <Custom Action="SetRollbackRestoreX86Cmd" After="RollbackRegX86" Condition="$(Installing) AND PREVDLLX86" />
+      <Custom Action="RollbackRestoreX86" After="SetRollbackRestoreX86Cmd" Condition="$(Installing) AND PREVDLLX86" />
+      <Custom Action="SetRegisterX86" After="RollbackRestoreX86" Condition="$(Installing)" />
+      <Custom Action="RegisterX86" After="SetRegisterX86" Condition="$(Installing)" />
+      <Custom Action="SetRollbackRegX64" After="RegisterX86" Condition="$(Installing) AND NOT PREVDLLX64" />
+      <Custom Action="RollbackRegX64" After="SetRollbackRegX64" Condition="$(Installing) AND NOT PREVDLLX64" />
+      <Custom Action="SetRollbackRestoreX64Cmd" After="RollbackRegX64" Condition="$(Installing) AND PREVDLLX64" />
+      <Custom Action="RollbackRestoreX64" After="SetRollbackRestoreX64Cmd" Condition="$(Installing) AND PREVDLLX64" />
+      <Custom Action="SetRegisterX64" After="RollbackRestoreX64" Condition="$(Installing)" />
+      <Custom Action="RegisterX64" After="SetRegisterX64" Condition="$(Installing)" />
+
+      <Custom Action="SetCleanupOld" Before="CleanupOld" Condition="$(Installing)" />
+      <Custom Action="CleanupOld" Before="InstallFinalize" Condition="$(Installing)" />
+
+      <!-- fresh install only: enable for the installing user once registration is committed -->
+      <Custom Action="SetEnableUserCmd" After="InstallFinalize"
+              Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND ENABLE_FOR_INSTALLING_USER = &quot;1&quot; AND $(NotSystem)" />
+      <Custom Action="EnableUser" After="SetEnableUserCmd"
+              Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND ENABLE_FOR_INSTALLING_USER = &quot;1&quot; AND $(NotSystem)" />
+    </InstallExecuteSequence>
+  </Package>
+</Wix>

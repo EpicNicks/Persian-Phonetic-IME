@@ -1,0 +1,69 @@
+# EMERGENCY FALLBACK, compiled in only so pime-core still builds and types without
+# data/presets/qamooscheh.toml (e.g. when built outside this repo). The real preset
+# is data/presets/qamooscheh.toml; a test keeps this copy identical in content.
+
+# Default preset, imported once from the Qamooscheh web keyboard (see data/SOURCE.txt).
+# Candidate lists are ordered: index 0 is the default shown in the preedit,
+# the rest are the alternates offered in the candidate list.
+# Never use the Arabic-only forms U+064A, U+0643, U+0629 here (use U+06CC, U+06A9).
+
+[options]
+gh = "ghain"
+q = "qaf"
+c = "none"
+kh = "khe"
+ch = "che"
+digits = "persian"
+punctuation = "persian"
+guillemets = "none"
+shift_letters = "lowercase"
+space = "preedit"
+enter = "commit"
+number_select = true
+candidate_labels = false
+candidate_position = "below"
+candidate_size = 50
+toggle_hotkey = "none"
+allow_arabic_forms = false
+allow_sequences = false
+
+[autocomplete]
+enabled = false
+predict_min_chars = 2
+learning = true
+
+[map.digraphs]
+kh = ["خ"]
+gh = ["غ", "ق"]
+ch = ["چ"]
+sh = ["ش"]
+zh = ["ژ"]
+
+[map.singles]
+a = ["ا", "آ"]
+e = ["ا", "آ"]   # alias of a, kept identical on purpose
+i = ["ی"]
+o = ["و"]
+u = ["و"]
+b = ["ب"]
+p = ["پ"]
+t = ["ت", "ط"]
+s = ["س", "ص", "ث"]
+j = ["ج"]
+h = ["ه", "ح"]
+d = ["د"]
+z = ["ز", "ذ", "ض", "ظ"]
+r = ["ر"]
+f = ["ف"]
+k = ["ک"]
+g = ["گ"]
+l = ["ل"]
+m = ["م"]
+n = ["ن"]
+v = ["و"]
+w = ["و"]
+x = ["خ"]
+y = ["ی"]
+q = ["ق", "غ"]
+"'" = ["ع", "ء"]
+# c has no entry: options.c decides ("none" = visible pending c).

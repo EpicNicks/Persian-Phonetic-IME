@@ -1,0 +1,41 @@
+# Cargo build outputs (including per-workstream target dirs)
+target*/
+**/target/
+*.pdb
+*.rlib
+*.exp
+*.ilk
+
+# Fuzzing
+fuzz/artifacts/
+fuzz/corpus/
+
+# Installer outputs
+installer/obj/
+installer/bin/
+*.msi
+*.wixpdb
+*.cab
+
+# Scratch and local-only files
+scratch/
+tmp/
+*.log
+*.orig
+*.rej
+
+# Local user config samples (never commit a real config)
+config.local.toml
+config-errors.txt
+
+# Editors / OS
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+spike/dist/
+spike/target*/
+crates/pime-tip/dist/
+installer/out/

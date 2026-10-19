@@ -1,0 +1,15 @@
+<!-- Windows Sandbox config. Edit HostFolder if the repo lives elsewhere, run build.ps1 first,
+     then double-click this file. Inside the sandbox, open an elevated PowerShell and run
+       powershell -ExecutionPolicy Bypass -File C:\pime\scripts\register.ps1
+     Everything is discarded when the sandbox closes. Sandbox has Notepad, Edge and Settings,
+     but not Word; use a Hyper-V VM for Word/Outlook and for Windows 11. -->
+<Configuration>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>E:\Code\Projects\persian phonetic ime\spike\dist</HostFolder>
+      <SandboxFolder>C:\pime</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <Networking>Disable</Networking>
+</Configuration>

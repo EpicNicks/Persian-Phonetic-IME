@@ -1,0 +1,104 @@
+# Persian Phonetic IME settings
+#
+# Edit this file in any text editor and save it; the IME picks up the change
+# automatically (switch to another window and back if it doesn't). If something in
+# here is wrong, only that line is ignored and you can keep typing; run
+# "pime-settings --check" or open the settings app to see what is wrong.
+#
+# Every setting below is shown with its default value. Lines starting with # are
+# comments. Text values go in "double quotes"; true/false do not.
+
+# Built-in letter map to start from: "qamooscheh" (default) or "minimal"
+# ("minimal" has one letter per key, so the candidate list never opens).
+preset = "qamooscheh"
+
+[options]
+# What "gh" types: "ghain" (غ first, ق offered as an alternative)
+#                  or "qaf"   (ق first, غ offered as an alternative).
+gh = "ghain"
+
+# What "q" types: "qaf" (ق first, غ as an alternative) or "ghain" (غ first).
+q = "qaf"
+
+# What a "c" on its own types (ch is always چ):
+#   "none" = nothing yet: the c stays visible until you type the h of "ch"
+#   "k"    = ک
+#   "s"    = س, with ص and ث offered as alternatives
+c = "none"
+
+# The sounds of "kh" (خ) and "ch" (چ). Each has only one choice for now.
+kh = "khe"
+ch = "che"
+
+# Order of the letters offered for "s" and "z"; the first one is typed by
+# default. Remove the # to use them. Any of the letters may be left out.
+# s_order = ["س", "ص", "ث"]
+# z_order = ["ز", "ذ", "ض", "ظ"]
+
+# Digits 0-9: "persian" (۰ ۱ ۲ ... ۹) or "ascii" (0 1 2 ... 9).
+digits = "persian"
+
+# Punctuation: "persian" (, ; ? % become ، ؛ ؟ ٪) or "none" (left as typed).
+punctuation = "persian"
+
+# Quotation marks « »: "none" (off), "angle" (< and > type « and »)
+# or "brace" ({ and } type « and »).
+guillemets = "none"
+
+# Shift + letter: "lowercase" (same as without Shift)
+#              or "alternate" (the letter's second choice: Shift+a = آ, Shift+s = ص).
+shift_letters = "lowercase"
+
+# Space while a word is being typed: "preedit" (keep exactly what is shown)
+# or "top-candidate" (the first suggestion; the same as "preedit" for now).
+space = "preedit"
+
+# Enter while a word is being typed: "commit" (finish the word only)
+# or "commit-and-pass" (finish the word and also send Enter, handy in chat apps).
+enter = "commit"
+
+# While the list of alternatives is open, 1-9 pick from it: true or false.
+number_select = true
+
+# Show letter names (like "sin", "sad", "se") under the alternatives: true or false.
+candidate_labels = false
+
+# Where the list of alternatives opens: "below" the word (default) or "above" it.
+# It still moves to the other side when there is no room.
+candidate_position = "below"
+
+# Shortcut that switches between Persian and Latin typing: "none" (default), "alt+`",
+# "ctrl+`", "ctrl+space", "ctrl+shift+space" or "ctrl+alt+space". The language-bar
+# button and Win+Space always work.
+toggle_hotkey = "none"
+
+# Size of the list of alternatives, in percent (25-300). 100 is the original large
+# size; 50 is the default.
+candidate_size = 50
+
+# Advanced: allow the Arabic-only letters ي ك ة in [map] entries without a
+# warning (Persian uses ی and ک), and allow entries of more than one letter.
+allow_arabic_forms = false
+allow_sequences = false
+
+[autocomplete]
+# Word suggestions are not available yet; these settings are ignored for now.
+enabled = false
+predict_min_chars = 2
+learning = true
+
+# Your own letter map changes, applied last. Each entry is a Latin key (1 to 3
+# characters, in the section for its length) and the letters it offers; the first
+# letter is typed by default, the rest appear in the list of alternatives.
+# Remove the # at the start of a line to use it.
+
+[map.singles]
+# v = ["و"]
+# x = ["خ", "کس"]      # needs allow_sequences = true (more than one letter)
+
+[map.digraphs]
+# th = ["ث"]
+
+[map.trigraphs]
+# tch = ["چ"]          # 3-letter keys work best when their first two letters
+                       # also have an entry

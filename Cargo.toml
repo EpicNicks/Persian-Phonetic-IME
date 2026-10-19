@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["crates/pime-core", "crates/pime-candidate-ui", "crates/pime-settings", "crates/pime-setup", "crates/pime-ids", "crates/pime-tip"]
+exclude = ["spike"]
+
+[workspace.package]
+edition = "2021"
+license = "MIT"
+
+[profile.dev]
+panic = "unwind"
+
+[profile.release]
+panic = "unwind"
+opt-level = 2
+debug = 1
+codegen-units = 4

@@ -1,0 +1,700 @@
+{
+ "version": 1,
+ "cases": [
+  {
+   "type": "config_error",
+   "name": "valid config no issues",
+   "user_config_toml": "[options]\ngh = \"qaf\"\ndigits = \"ascii\"\n",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "gh": "qaf",
+     "digits": "ascii"
+    },
+    "messages_contain": []
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "empty file",
+   "user_config_toml": "",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "gh": "ghain",
+     "digits": "persian"
+    },
+    "messages_contain": []
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "bad value skips one option",
+   "user_config_toml": "[options]\ngh = \"kaf\"\ndigits = \"ascii\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "gh": "ghain",
+     "digits": "ascii"
+    },
+    "messages_contain": [
+     "line 2",
+     "kaf",
+     "ghain",
+     "qaf"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "bad value on preset default keeps preset",
+   "user_config_toml": "[options]\nenter = \"newline\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "enter": "commit"
+    },
+    "messages_contain": [
+     "line 2",
+     "newline",
+     "commit",
+     "commit-and-pass"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "bad value space",
+   "user_config_toml": "[options]\nspace = \"first\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "space": "preedit"
+    },
+    "messages_contain": [
+     "line 2",
+     "first",
+     "preedit",
+     "top-candidate"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "bad value c",
+   "user_config_toml": "[options]\nc = \"kaf\"\ngh = \"qaf\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "c": "none",
+     "gh": "qaf"
+    },
+    "messages_contain": [
+     "line 2",
+     "kaf",
+     "none",
+     "k",
+     "s"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "bad value shift_letters",
+   "user_config_toml": "[options]\nshift_letters = \"upper\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "shift_letters": "lowercase"
+    },
+    "messages_contain": [
+     "line 2",
+     "upper",
+     "lowercase",
+     "alternate"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "bad value guillemets",
+   "user_config_toml": "[options]\nguillemets = \"yes\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "guillemets": "none"
+    },
+    "messages_contain": [
+     "line 2",
+     "yes",
+     "none",
+     "angle",
+     "brace"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "wrong type number_select",
+   "user_config_toml": "[options]\nnumber_select = \"yes\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "number_select": true
+    },
+    "messages_contain": [
+     "line 2",
+     "number_select",
+     "true",
+     "false"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "wrong type digits",
+   "user_config_toml": "[options]\ndigits = 5\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "digits": "persian"
+    },
+    "messages_contain": [
+     "line 2",
+     "digits",
+     "persian",
+     "ascii"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "wrong type s_order",
+   "user_config_toml": "[options]\ns_order = \"sad\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "map.singles.s": [
+      "س",
+      "ص",
+      "ث"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "s_order",
+     "list"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "unknown option with suggestion",
+   "user_config_toml": "# my settings\n[options]\ndiigts = \"ascii\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "digits": "persian"
+    },
+    "messages_contain": [
+     "line 3",
+     "unknown setting",
+     "diigts",
+     "Did you mean",
+     "digits"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "unknown option no suggestion",
+   "user_config_toml": "[options]\nzzzzzzzz = 1\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {},
+    "messages_contain": [
+     "line 2",
+     "unknown setting",
+     "zzzzzzzz"
+    ]
+   },
+   "notes": "no close match, so no 'Did you mean'"
+  },
+  {
+   "type": "config_error",
+   "name": "unknown section",
+   "user_config_toml": "[optons]\ngh = \"qaf\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "gh": "ghain"
+    },
+    "messages_contain": [
+     "line 1",
+     "unknown section",
+     "optons",
+     "Did you mean",
+     "options"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "unknown preset",
+   "user_config_toml": "preset = \"persian2\"\n[options]\ndigits = \"ascii\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "digits": "ascii"
+    },
+    "messages_contain": [
+     "line 1",
+     "persian2",
+     "qamooscheh",
+     "minimal"
+    ]
+   },
+   "notes": "unknown preset: qamooscheh is used instead"
+  },
+  {
+   "type": "config_error",
+   "name": "unknown key in autocomplete",
+   "user_config_toml": "[autocomplete]\nenabeld = true\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "autocomplete.enabled": false
+    },
+    "messages_contain": [
+     "line 2",
+     "unknown setting",
+     "enabeld",
+     "enabled"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "syntax error missing quote",
+   "user_config_toml": "[options]\ngh = \"qaf\n",
+   "expect": {
+    "fallback": "whole_file",
+    "applied": {
+     "gh": "ghain",
+     "digits": "persian"
+    },
+    "messages_contain": [
+     "line 2",
+     "closing quote",
+     "skipped",
+     "default settings"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "syntax error missing bracket",
+   "user_config_toml": "[options\ngh = \"qaf\"\n",
+   "expect": {
+    "fallback": "whole_file",
+    "applied": {
+     "gh": "ghain"
+    },
+    "messages_contain": [
+     "line 1",
+     "skipped"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "syntax error duplicate key",
+   "user_config_toml": "[options]\ndigits = \"ascii\"\ndigits = \"persian\"\n",
+   "expect": {
+    "fallback": "whole_file",
+    "applied": {
+     "digits": "persian"
+    },
+    "messages_contain": [
+     "line 3",
+     "digits",
+     "twice",
+     "skipped"
+    ]
+   },
+   "notes": "TOML forbids duplicate keys; treated as a syntax error (whole file skipped)"
+  },
+  {
+   "type": "config_error",
+   "name": "syntax error missing equals",
+   "user_config_toml": "[options]\ngh \"qaf\"\n",
+   "expect": {
+    "fallback": "whole_file",
+    "applied": {
+     "gh": "ghain"
+    },
+    "messages_contain": [
+     "line 2",
+     "skipped"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "syntax error keeps defaults",
+   "user_config_toml": "[options]\ndigits = \"ascii\"\nthis is not toml\n",
+   "expect": {
+    "fallback": "whole_file",
+    "applied": {
+     "digits": "persian"
+    },
+    "messages_contain": [
+     "line 3",
+     "skipped"
+    ]
+   },
+   "notes": "the valid digits line is NOT applied because the whole file is skipped"
+  },
+  {
+   "type": "config_error",
+   "name": "arabic yeh warns but applies",
+   "user_config_toml": "[map.singles]\ny = [\"ي\"]\n",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "map.singles.y": [
+      "ي"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "U+064A",
+     "allow_arabic_forms"
+    ]
+   },
+   "notes": "Warning (applied). fallback 'none' means no entry was skipped"
+  },
+  {
+   "type": "config_error",
+   "name": "arabic kaf warns",
+   "user_config_toml": "[map.singles]\nk = [\"ك\"]\n",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "map.singles.k": [
+      "ك"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "U+0643",
+     "allow_arabic_forms"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "arabic teh marbuta warns",
+   "user_config_toml": "[map.singles]\nh = [\"ة\",\"ه\"]\n",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "map.singles.h": [
+      "ة",
+      "ه"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "U+0629"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "arabic forms allowed silently",
+   "user_config_toml": "[options]\nallow_arabic_forms = true\n[map.singles]\ny = [\"ي\"]\n",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "map.singles.y": [
+      "ي"
+     ]
+    },
+    "messages_contain": []
+   },
+   "notes": "no messages at all"
+  },
+  {
+   "type": "config_error",
+   "name": "empty candidate list skipped",
+   "user_config_toml": "[map.singles]\nb = []\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "map.singles.b": [
+      "ب"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "b",
+     "at least one"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "duplicate candidates skipped",
+   "user_config_toml": "[map.singles]\ns = [\"س\",\"س\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "map.singles.s": [
+      "س",
+      "ص",
+      "ث"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "s",
+     "twice"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "latin candidate skipped",
+   "user_config_toml": "[map.singles]\nb = [\"B\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "map.singles.b": [
+      "ب"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "\"B\"",
+     "Persian"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "multi code point skipped",
+   "user_config_toml": "[map.singles]\nl = [\"لا\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "map.singles.l": [
+      "ل"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "\"لا\"",
+     "one character",
+     "allow_sequences"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "multi code point allowed",
+   "user_config_toml": "[options]\nallow_sequences = true\n[map.singles]\nl = [\"لا\"]\n",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "map.singles.l": [
+      "لا"
+     ]
+    },
+    "messages_contain": []
+   },
+   "notes": "sequences accepted behind allow_sequences"
+  },
+  {
+   "type": "config_error",
+   "name": "combining mark candidate skipped",
+   "user_config_toml": "[map.singles]\na = [\"ا\u0653\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "map.singles.a": [
+      "ا",
+      "آ"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "one character"
+    ]
+   },
+   "notes": "alef + U+0653 is two code points; the single code point U+0622 is the valid form"
+  },
+  {
+   "type": "config_error",
+   "name": "key too long skipped",
+   "user_config_toml": "[map.trigraphs]\nshhh = [\"ش\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {},
+    "messages_contain": [
+     "line 2",
+     "shhh",
+     "1 to 3"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "key not ascii skipped",
+   "user_config_toml": "[map.singles]\n\"é\" = [\"ا\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {},
+    "messages_contain": [
+     "line 2",
+     "é",
+     "ASCII"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "key wrong section length",
+   "user_config_toml": "[map.singles]\nsh = [\"ش\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {},
+    "messages_contain": [
+     "line 2",
+     "sh",
+     "[map.digraphs]"
+    ]
+   },
+   "notes": "ASSUMPTION: key length must match the section (1/2/3)"
+  },
+  {
+   "type": "config_error",
+   "name": "candidates not a list",
+   "user_config_toml": "[map.singles]\nb = \"ب\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "map.singles.b": [
+      "ب"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "b",
+     "list"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "unreachable prefix warns",
+   "user_config_toml": "[map.trigraphs]\nxyz = [\"ز\"]\n",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "map.trigraphs.xyz": [
+      "ز"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "xyz",
+     "xy"
+    ]
+   },
+   "notes": "Warning, entry applied (PLAN 3.3 wins over 3.4 'skipped'); the tokeniser re-renders the whole buffer so it IS typeable"
+  },
+  {
+   "type": "config_error",
+   "name": "two problems both reported",
+   "user_config_toml": "[options]\ngh = \"kaf\"\ndigits = \"binary\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "gh": "ghain",
+     "digits": "persian"
+    },
+    "messages_contain": [
+     "line 2",
+     "kaf",
+     "line 3",
+     "binary"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "good map entry survives bad one",
+   "user_config_toml": "[map.singles]\nb = []\nv = [\"ف\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "map.singles.b": [
+      "ب"
+     ],
+     "map.singles.v": [
+      "ف"
+     ]
+    },
+    "messages_contain": [
+     "line 2"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "bad option does not stop map",
+   "user_config_toml": "[options]\ngh = \"kaf\"\n[map.singles]\nv = [\"ف\"]\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "gh": "ghain",
+     "map.singles.v": [
+      "ف"
+     ]
+    },
+    "messages_contain": [
+     "line 2",
+     "kaf"
+    ]
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "preset key only",
+   "user_config_toml": "preset = \"minimal\"\n",
+   "expect": {
+    "fallback": "none",
+    "applied": {
+     "gh": "ghain"
+    },
+    "messages_contain": []
+   }
+  },
+  {
+   "type": "config_error",
+   "name": "messages name the file",
+   "user_config_toml": "[options]\ngh = \"kaf\"\n",
+   "expect": {
+    "fallback": "entry",
+    "applied": {
+     "gh": "ghain"
+    },
+    "messages_contain": [
+     "config.toml"
+    ]
+   },
+   "notes": "messages name the file as config.toml and the line; they never include typed content"
+  }
+ ]
+}

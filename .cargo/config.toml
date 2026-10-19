@@ -1,0 +1,8 @@
+# Static CRT: the TIP is loaded into arbitrary host processes, so it must not
+# depend on vcruntime140.dll / ucrtbase being present in any particular version.
+# /guard:cf matches PLAN 5.4 (CFG-enabled hosts reject nothing, but it is cheap hardening).
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static", "-C", "control-flow-guard"]
+
+[target.i686-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static", "-C", "control-flow-guard"]
