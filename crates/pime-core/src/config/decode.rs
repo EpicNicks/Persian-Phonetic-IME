@@ -67,7 +67,7 @@ fn utf16(rest: &[u8], unit: fn([u8; 2]) -> u16) -> Option<String> {
     if !rest.len().is_multiple_of(2) {
         return None;
     }
-    let units: Vec<u16> = rest.chunks_exact(2).map(|c| unit([c[0], c[1]])).collect();
+    let units: Vec<u16> = rest.as_chunks::<2>().0.iter().map(|&c| unit(c)).collect();
     String::from_utf16(&units).ok()
 }
 
