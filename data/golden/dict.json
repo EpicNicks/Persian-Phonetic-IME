@@ -1,0 +1,1266 @@
+{
+ "version": 1,
+ "description": "pime-dict goldens (docs/autocomplete.md section 8), run by crates/pime-dict/tests/golden.rs. Expectations follow the contract (2.4, 3.1-3.4) with default ScoreParams and BuildOptions.",
+ "cases": [
+  {
+   "type": "complete",
+   "name": "prefix ordered by frequency",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت",
+    "سلطان",
+    "سلیقه"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "limit truncates",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 2,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "limit one",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 1,
+   "expect": [
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "limit zero gives nothing",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 0,
+   "expect": []
+  },
+  {
+   "type": "complete",
+   "name": "empty prefix gives nothing",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "",
+   "limit": 5,
+   "expect": []
+  },
+  {
+   "type": "complete",
+   "name": "zwnj-only prefix gives nothing",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "‌",
+   "limit": 5,
+   "expect": []
+  },
+  {
+   "type": "complete",
+   "name": "nonexistent prefix",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "ژژ",
+   "limit": 5,
+   "expect": []
+  },
+  {
+   "type": "complete",
+   "name": "latin prefix gives nothing",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "sa",
+   "limit": 5,
+   "expect": []
+  },
+  {
+   "type": "complete",
+   "name": "exact word dropped",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سلام",
+   "limit": 5,
+   "expect": [
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "exact word dropped, nothing else",
+   "tsv": "سلام\t5.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سلام",
+   "limit": 5,
+   "expect": []
+  },
+  {
+   "type": "complete",
+   "name": "single-letter prefix",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "س",
+   "limit": 9,
+   "expect": [
+    "سلام",
+    "سلامت",
+    "سلطان",
+    "سلیقه",
+    "سبد"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "typed diacritic kept, ignored for matching",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سَل",
+   "limit": 2,
+   "expect": [
+    "سَلام",
+    "سَلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "equal prior: shorter first, then code point order",
+   "tsv": "سبزی\t3.0\nسبد\t3.0\nسبب\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سب",
+   "limit": 5,
+   "expect": [
+    "سبب",
+    "سبد",
+    "سبزی"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "zwnj offered at the junction",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "می",
+   "limit": 5,
+   "expect": [
+    "می‌خواهم",
+    "میز",
+    "میخک"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "zwnj not offered after typing past it",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "میخ",
+   "limit": 5,
+   "expect": [
+    "میخواهم",
+    "میخک"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "typed zwnj kept where dictionary has one",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "می‌خ",
+   "limit": 5,
+   "expect": [
+    "می‌خواهم",
+    "می‌خک"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "typed zwnj kept where dictionary has none",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "می‌",
+   "limit": 5,
+   "expect": [
+    "می‌خواهم",
+    "می‌ز",
+    "می‌خک"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "exact word dropped regardless of zwnj",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "میخواهم",
+   "limit": 5,
+   "expect": []
+  },
+  {
+   "type": "complete",
+   "name": "exact word with zwnj dropped",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "می‌خواهم",
+   "limit": 5,
+   "expect": []
+  },
+  {
+   "type": "complete",
+   "name": "arabic yeh in prefix matches and is kept verbatim",
+   "note": "Arabic-only forms may appear only inside the typed prefix (2.4)",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "مي",
+   "limit": 5,
+   "expect": [
+    "مي‌خواهم",
+    "ميز",
+    "ميخک"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "arabic kaf in tsv normalised before completion",
+   "tsv": "كتاب\t5\nکتابخانه\t4\nکتری\t3\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "کت",
+   "limit": 5,
+   "expect": [
+    "کتاب",
+    "کتابخانه",
+    "کتری"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "teh marbuta in tsv normalised",
+   "tsv": "مدرسة\t4.5\nمدرک\t4\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "مد",
+   "limit": 5,
+   "expect": [
+    "مدرسه",
+    "مدرک"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "zwnj variant chosen as display even when rarer",
+   "tsv": "میخواهم\t4.9\nمی‌خواهم\t4.0\nمیز\t4.5\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "می",
+   "limit": 5,
+   "expect": [
+    "می‌خواهم",
+    "میز"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "merged duplicates sum frequency",
+   "note": "log10(2*10^4) = 4.30 > 4.2",
+   "tsv": "الف\t4.0\nالف\t4.0\nالبته\t4.2\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "ال",
+   "limit": 5,
+   "expect": [
+    "الف",
+    "البته"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "merged across inputs",
+   "tsv": [
+    "الف\t4.0\n",
+    "الف\t4.0\nالبته\t4.2\n"
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "ال",
+   "limit": 5,
+   "expect": [
+    "الف",
+    "البته"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "max_entries keeps most frequent",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "options": {
+    "max_entries": 2
+   },
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "min_zipf drops rare words",
+   "tsv": "سلام\t5.0\nسلامت\t0.9\nسلطان\t1.0\n",
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلطان"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "accept boosts a lower word",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\n",
+   "history": [
+    {
+     "word": "سلامت",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history ignored when use_history is false",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\n",
+   "history": [
+    {
+     "word": "سلامت",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": false,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "accept 30 days old still wins (half life)",
+   "note": "1.5*log2(1.5)=0.88; 4.2+0.88 > 5.0",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\n",
+   "history": [
+    {
+     "word": "سلامت",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20030,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "accept 90 days old has decayed",
+   "note": "1.5*log2(1.125)=0.25; 4.45 < 5.0",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\n",
+   "history": [
+    {
+     "word": "سلامت",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20090,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "clock going backwards counts as no decay",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\n",
+   "history": [
+    {
+     "word": "سلامت",
+     "events": [
+      "accepted"
+     ],
+     "day": 20010
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "accept of word missing from dictionary is not offered",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\n",
+   "history": [
+    {
+     "word": "سلامتی",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history keyed by match_key: arabic kaf event",
+   "tsv": "کتاب\t4.0\nکتری\t4.5\n",
+   "history": [
+    {
+     "word": "كتاب",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "کت",
+   "limit": 5,
+   "expect": [
+    "کتاب",
+    "کتری"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history keyed by match_key: zwnj-less event",
+   "tsv": "می‌خواهم\t4.0\nمیز\t4.5\n",
+   "history": [
+    {
+     "word": "میخواهم",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "می",
+   "limit": 5,
+   "expect": [
+    "می‌خواهم",
+    "میز"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "dismissed once demotes by one zipf",
+   "note": "5.0-1.0 < 4.3",
+   "tsv": "سلام\t5.0\nسلامت\t4.3\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "dismissed"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "ignored once is half a dismissal",
+   "note": "5.0-log2(1.5)=4.415 > 4.3",
+   "tsv": "سلام\t5.0\nسلامت\t4.3\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "ignored"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "ignored once vs close rival",
+   "note": "4.415 < 4.5",
+   "tsv": "سلام\t5.0\nسلامت\t4.5\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "ignored"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "ignored twice equals one dismissal",
+   "tsv": "سلام\t5.0\nسلامت\t4.3\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "ignored",
+      "ignored"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "skipped once is a small penalty",
+   "note": "5.0-log2(1.25)=4.678 > 4.6",
+   "tsv": "سلام\t5.0\nسلامت\t4.6\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "skipped"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "skipped once loses to rival 4.7",
+   "note": "4.678 < 4.7",
+   "tsv": "سلام\t5.0\nسلامت\t4.7\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "skipped"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "dismissal decays over a year",
+   "tsv": "سلام\t5.0\nسلامت\t4.5\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "dismissed"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20365,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "dismissal same day",
+   "tsv": "سلام\t5.0\nسلامت\t4.5\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "dismissed"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "accept halves earlier rejections",
+   "note": "1.5 - log2(1.5) = 0.915; 4.915 > 4.7 (without halving 4.5 < 4.7)",
+   "tsv": "سلام\t4.0\nسلامت\t4.7\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "dismissed",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "decay applied when recording on a later day",
+   "note": "a decays to 0.5 before the dismissal: 0.877-1 = -0.12; 4.88 < 4.9",
+   "tsv": "سلام\t5.0\nسلامت\t4.9\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    },
+    {
+     "word": "سلام",
+     "events": [
+      "dismissed"
+     ],
+     "day": 20030
+    }
+   ],
+   "today": 20030,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "learned bonus clamped at learned_max",
+   "note": "1.5*log2(31)=7.4 clamps to 6.0: 7.0 < 7.2",
+   "tsv": "سلام\t1.0\nسلامت\t7.2\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "learned penalty clamped at learned_min",
+   "note": "-log2(32)=-5 clamps to -4.0: 1.1 > 1.0",
+   "tsv": "سلام\t5.1\nسلامت\t1.0\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed",
+      "dismissed"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "accept count capped",
+   "note": "a capped at 64, learned clamped at 6.0: 7.0 > 6.9",
+   "tsv": "سلام\t1.0\nسلامت\t6.9\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history of other prefix ignored",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\n",
+   "history": [
+    {
+     "word": "کتاب",
+     "events": [
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history ranks within limit",
+   "note": "3.5 + 1.5*log2(3) = 5.88",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "history": [
+    {
+     "word": "سلیقه",
+     "events": [
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 2,
+   "expect": [
+    "سلیقه",
+    "سلام"
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "dismissed word still offered, just lower",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "dismissed",
+      "dismissed",
+      "dismissed"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلطان",
+    "سلیقه",
+    "سلام"
+   ]
+  },
+  {
+   "type": "build",
+   "name": "arabic forms normalised",
+   "tsv": "كتاب\t5\nكتاب\t4\n",
+   "expect_display": [
+    "کتاب"
+   ],
+   "expect_report": {
+    "kept": 1,
+    "merged": 1
+   }
+  },
+  {
+   "type": "build",
+   "name": "yeh variants and teh marbuta",
+   "tsv": "علي\t4\nمدرسة\t4\nموسى\t3\n",
+   "expect_display": [
+    "علی",
+    "مدرسه",
+    "موسی"
+   ],
+   "expect_report": {
+    "kept": 3,
+    "merged": 0
+   }
+  },
+  {
+   "type": "build",
+   "name": "diacritics and tatweel stripped",
+   "tsv": "مـدرسه\t4\nکِتاب\t4\nقرآن\t3\n",
+   "expect_display": [
+    "قرآن",
+    "مدرسه",
+    "کتاب"
+   ],
+   "expect_report": {
+    "kept": 3
+   }
+  },
+  {
+   "type": "build",
+   "name": "superscript alef removed",
+   "tsv": "رحمٰن\t3\n",
+   "expect_display": [
+    "رحمن"
+   ],
+   "expect_report": {
+    "kept": 1
+   }
+  },
+  {
+   "type": "build",
+   "name": "zwnj trimmed at ends and runs collapsed",
+   "tsv": "‌کتاب‌\t4\nمی‌‌روم\t4\n",
+   "expect_display": [
+    "می‌روم",
+    "کتاب"
+   ],
+   "expect_report": {
+    "kept": 2,
+    "with_zwnj": 1
+   }
+  },
+  {
+   "type": "build",
+   "name": "foreign characters drop the row",
+   "note": "Latin, Persian digit, accented Latin, space",
+   "tsv": "hello\t5\nسلام۱\t4\nسلام\t4\nكافé\t3\nدر بازار\t3\n",
+   "expect_display": [
+    "سلام"
+   ],
+   "expect_report": {
+    "kept": 1,
+    "dropped_chars": 4
+   }
+  },
+  {
+   "type": "build",
+   "name": "key length bounds 2..=32",
+   "note": "ZWNJ does not count towards the key length",
+   "tsv": "ب\t5\nبب\t4\nب‌پ\t4\nکککککککککککککککککککککککککککککککک\t3\nگگگگگگگگگگگگگگگگگگگگگگگگگگگگگگگگگ\t3\n",
+   "expect_display": [
+    "بب",
+    "ب‌پ",
+    "کککککککککککککککککککککککککککککککک"
+   ],
+   "expect_report": {
+    "kept": 3
+   }
+  },
+  {
+   "type": "build",
+   "name": "min_zipf drops rare words",
+   "tsv": "سلام\t5\nسلامت\t0.5\n",
+   "expect_display": [
+    "سلام"
+   ],
+   "expect_report": {
+    "kept": 1
+   }
+  },
+  {
+   "type": "build",
+   "name": "merged frequency can cross min_zipf",
+   "note": "log10(2*10^0.7)=1.001 >= 1.0",
+   "tsv": "سلام\t0.7\nسلام\t0.7\n",
+   "expect_display": [
+    "سلام"
+   ],
+   "expect_report": {
+    "kept": 1,
+    "merged": 1
+   }
+  },
+  {
+   "type": "build",
+   "name": "zwnj variant preferred as display",
+   "tsv": "میخواهم\t4.9\nمی‌خواهم\t4.0\n",
+   "expect_display": [
+    "می‌خواهم"
+   ],
+   "expect_report": {
+    "kept": 1,
+    "merged": 1,
+    "with_zwnj": 1
+   }
+  },
+  {
+   "type": "build",
+   "name": "most frequent zwnj variant wins",
+   "note": "merged not asserted: counting rows (2) or keys (1) is unspecified",
+   "tsv": "میخ‌واهم\t3\nمی‌خواهم\t4\nمیخواهم\t5\n",
+   "expect_display": [
+    "می‌خواهم"
+   ],
+   "expect_report": {
+    "kept": 1
+   }
+  },
+  {
+   "type": "build",
+   "name": "comments and blank lines skipped",
+   "tsv": "# comment\n\nسلام\t5\n\n# another\n",
+   "expect_display": [
+    "سلام"
+   ],
+   "expect_report": {
+    "read": 1,
+    "kept": 1
+   }
+  },
+  {
+   "type": "build",
+   "name": "crlf line endings accepted",
+   "tsv": "سلام\t5\r\nکتاب\t4\r\n",
+   "expect_display": [
+    "سلام",
+    "کتاب"
+   ],
+   "expect_report": {
+    "kept": 2
+   }
+  },
+  {
+   "type": "build",
+   "name": "several inputs merged",
+   "tsv": [
+    "سلام\t4\n",
+    "سلام\t4\nکتاب\t3\n"
+   ],
+   "expect_display": [
+    "سلام",
+    "کتاب"
+   ],
+   "expect_report": {
+    "kept": 2,
+    "merged": 1
+   },
+   "expect_prior": {
+    "سلام": 4.3,
+    "کتاب": 3.0
+   }
+  },
+  {
+   "type": "build",
+   "name": "merged prior is log of summed frequency",
+   "tsv": "الف\t4.0\nالف\t4.0\n",
+   "expect_display": [
+    "الف"
+   ],
+   "expect_report": {
+    "kept": 1
+   },
+   "expect_prior": {
+    "الف": 4.3
+   }
+  },
+  {
+   "type": "build",
+   "name": "max_entries keeps the most frequent",
+   "tsv": "الف\t3\nبرای\t5\nکتاب\t4\n",
+   "options": {
+    "max_entries": 2
+   },
+   "expect_display": [
+    "برای",
+    "کتاب"
+   ],
+   "expect_report": {
+    "kept": 2
+   }
+  },
+  {
+   "type": "build",
+   "name": "non-numeric zipf is an error",
+   "tsv": "سلام\tabc\n",
+   "expect_error": true
+  },
+  {
+   "type": "build",
+   "name": "no arabic-only letter survives",
+   "tsv": "كيك\t3\nمكة\t3\n",
+   "expect_display": [
+    "مکه",
+    "کیک"
+   ],
+   "expect_report": {
+    "kept": 2
+   },
+   "expect_prior": {
+    "کیک": 3.0,
+    "مکه": 3.0
+   }
+  }
+ ]
+}

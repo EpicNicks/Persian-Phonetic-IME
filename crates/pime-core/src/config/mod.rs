@@ -167,16 +167,23 @@ pub enum EnterMode {
     CommitAndPass,
 }
 
-/// `[autocomplete]` (phase 2; parsed and validated, unused in v1).
+/// `[autocomplete]` (`docs/autocomplete.md` section 6).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Autocomplete {
     /// Master switch.
     pub enabled: bool,
-    /// Letters typed before completions are offered.
+    /// Persian letters (ZWNJ not counted) typed before completions are offered.
     pub predict_min_chars: i64,
-    /// Whether committed words are remembered.
+    /// Whether accepted / passed-over completions are learned and used for ranking.
     pub learning: bool,
+    /// Completion rows shown, clamped to `1..=MAX_COMPLETIONS_MAX`.
+    pub max_completions: u32,
 }
+
+/// `max_completions` upper bound (the popup never exceeds 9 rows).
+pub const MAX_COMPLETIONS_MAX: u32 = 9;
+/// `max_completions` default.
+pub const MAX_COMPLETIONS_DEFAULT: u32 = 5;
 
 /// Behaviour options (the map-shaping options are already folded into the map).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -340,6 +347,11 @@ const AUTOCOMPLETE: &[OptionSpec] = &[
         default: Some(DefaultValue::Int(2)),
     },
     flag("learning", true),
+    OptionSpec {
+        name: "max_completions",
+        kind: OptionKind::Integer { min: 1 },
+        default: Some(DefaultValue::Int(MAX_COMPLETIONS_DEFAULT as i64)),
+    },
 ];
 
 /// Every `[options]` setting, in schema order.
@@ -605,10 +617,17 @@ fn resolve_with_preset(
     }
 
     // 5. Raw user overrides, entry by entry.
+    let mut raw_c = false;
     for e in &user.map {
         if check_map_entry(e, &rules, issues) {
+            raw_c |= e.key == "c";
             map.insert(e.key.clone(), e.candidates.clone());
         }
+    }
+    // `c = "s"` follows the final `s`, including a raw `[map.singles] s`.
+    if text("c") == Some("s") && !raw_c {
+        let s = map.get("s").cloned().unwrap_or_else(|| vec!["س".into()]);
+        map.insert("c".into(), s);
     }
     // 6. Reachability of 3-letter keys the user added (PLAN 3.3: warn only).
     for e in &user.map {
@@ -709,6 +728,11 @@ fn resolve_with_preset(
             enabled: opt_bool("autocomplete.enabled"),
             predict_min_chars: opt_int("autocomplete.predict_min_chars", 2),
             learning: opt_bool("autocomplete.learning"),
+            max_completions: opt_int(
+                "autocomplete.max_completions",
+                MAX_COMPLETIONS_DEFAULT as i64,
+            )
+            .clamp(1, MAX_COMPLETIONS_MAX as i64) as u32,
         },
     };
 
@@ -991,7 +1015,11 @@ fn parse_settings(
                     None
                 }
                 None => {
-                    issues.push(wrong_type(&loc, key, "a whole number", "2", item));
+                    let example = match spec.default {
+                        Some(DefaultValue::Int(d)) => d.to_string(),
+                        _ => min.to_string(),
+                    };
+                    issues.push(wrong_type(&loc, key, "a whole number", &example, item));
                     None
                 }
             },

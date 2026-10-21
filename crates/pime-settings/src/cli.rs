@@ -2,6 +2,8 @@
 
 use crate::backup::{reset_config, Timestamp};
 use crate::defaults::DEFAULT_CONFIG;
+use crate::dictionary::{dictionary_line, installed_dict_path};
+use crate::learned::{clear_history, CLEARED_MESSAGE};
 use crate::paths::Paths;
 use crate::report::{exit, write_errors_file, Check};
 use std::ffi::OsString;
@@ -20,6 +22,7 @@ Usage:
   pime-settings --write-errors  check your config.toml and rewrite config-errors.txt
   pime-settings --reset         back up config.toml and replace it with the defaults
   pime-settings --print-default print a commented default config.toml
+  pime-settings --clear-history delete the learned words
   pime-settings --open          open config.toml in your editor (created if missing)
   pime-settings --help          show this text
 
@@ -43,6 +46,8 @@ pub enum Command {
     Reset,
     /// `--print-default`.
     PrintDefault,
+    /// `--clear-history`.
+    ClearHistory,
     /// `--open`.
     Open,
     /// `--help`.
@@ -63,6 +68,7 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, String
         "--write-errors" => Command::WriteErrors,
         "--reset" => Command::Reset,
         "--print-default" => Command::PrintDefault,
+        "--clear-history" => Command::ClearHistory,
         "--open" => Command::Open,
         "--help" | "-h" | "/?" => Command::Help,
         other => return Err(format!("unknown option \"{other}\"")),
@@ -95,6 +101,7 @@ pub fn run_check(
     match Check::load(&path) {
         Ok(c) => {
             let _ = write!(out, "{}", c.report());
+            let _ = writeln!(out, "{}", dictionary_line(&installed_dict_path()));
             c.exit_code()
         }
         Err(e) => io_failure(err, "read", &path, e),
@@ -146,6 +153,18 @@ pub fn run_reset(paths: &Paths, at: Timestamp, out: &mut dyn Write, err: &mut dy
     }
 }
 
+/// `--clear-history`: deletes the learned-word files. The caller signals the reload
+/// event afterwards. Succeeds also when there was nothing to delete.
+pub fn run_clear_history(paths: &Paths, out: &mut dyn Write, err: &mut dyn Write) -> i32 {
+    match clear_history(paths) {
+        Ok(_) => {
+            let _ = writeln!(out, "{CLEARED_MESSAGE}");
+            exit::OK
+        }
+        Err(e) => io_failure(err, "clear", &paths.history_dir, e),
+    }
+}
+
 /// `--print-default`.
 pub fn run_print_default(out: &mut dyn Write) -> i32 {
     let _ = out.write_all(DEFAULT_CONFIG.as_bytes());
@@ -170,6 +189,8 @@ mod tests {
             Ok(Command::Check(Some("a b.toml".into())))
         );
         assert_eq!(p(&["--reset"]), Ok(Command::Reset));
+        assert_eq!(p(&["--clear-history"]), Ok(Command::ClearHistory));
+        assert!(p(&["--clear-history", "x"]).is_err());
         assert_eq!(p(&["--show-errors"]), Ok(Command::ShowErrors));
         assert!(p(&["--reset", "x"]).is_err());
         assert!(p(&["--bogus"]).unwrap_err().contains("--bogus"));

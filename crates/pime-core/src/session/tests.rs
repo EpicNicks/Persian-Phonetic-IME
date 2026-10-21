@@ -289,3 +289,179 @@ fn backspace_through_everything_ends_composition() {
     let out = s.on_key(&KeyEvent::plain(VK_BACK));
     assert!(!out.eaten, "idle Backspace passes");
 }
+
+#[test]
+fn trailing_zwnj_is_not_committed() {
+    let mut s = session("");
+    type_str(&mut s, "m");
+    s.on_key(&KeyEvent::shifted(VK_SPACE));
+    let out = s.on_key(&KeyEvent::plain(VK_SPACE));
+    assert_eq!(out.commit, "م ");
+}
+
+#[test]
+fn out_of_range_digit_is_eaten_with_list_open() {
+    let mut s = session("");
+    type_str(&mut s, "s");
+    let out = s.on_key(&key('5'));
+    assert!(out.eaten);
+    assert_eq!(out.commit, "");
+    assert_eq!(out.preedit, "س");
+    assert!(out.candidates.is_some());
+}
+
+#[test]
+fn preedit_is_capped() {
+    let mut s = session("");
+    let mut committed = String::new();
+    for _ in 0..(MAX_PREEDIT * 2 + 3) {
+        let out = s.on_key(&key('b'));
+        assert!(out.eaten);
+        assert!(out.preedit.chars().count() <= MAX_PREEDIT);
+        committed.push_str(&out.commit);
+    }
+    assert_eq!(committed.chars().count(), MAX_PREEDIT * 2);
+    assert_eq!(s.snapshot().preedit.chars().count(), 3);
+}
+
+mod autocomplete {
+    use super::*;
+    use crate::complete::{CompleteCtx, Completion, ListCompleter};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    /// Counts queries; answers like a `ListCompleter` over a fixed list.
+    struct Counting {
+        inner: ListCompleter,
+        calls: AtomicUsize,
+    }
+
+    impl Completer for Counting {
+        fn complete(&self, prefix: &str, limit: usize, ctx: &CompleteCtx) -> Vec<Completion> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            self.inner.complete(prefix, limit, ctx)
+        }
+    }
+
+    fn words() -> ListCompleter {
+        ListCompleter::new([
+            ("سلام".to_string(), 5.0),
+            ("سلامت".to_string(), 4.2),
+            ("سلطان".to_string(), 4.0),
+        ])
+    }
+
+    fn ac_session(toml: &str) -> (Session, Arc<Counting>) {
+        let mut s = session(&format!("[autocomplete]\nenabled = true\n{toml}"));
+        let c = Arc::new(Counting {
+            inner: words(),
+            calls: AtomicUsize::new(0),
+        });
+        s.set_completer(Some(c.clone()));
+        (s, c)
+    }
+
+    #[test]
+    fn session_stays_clone_and_debug() {
+        let (s, _) = ac_session("");
+        let t = s.clone();
+        assert!(format!("{t:?}").contains("Completer"));
+    }
+
+    #[test]
+    fn would_eat_is_side_effect_free_with_completions() {
+        let (mut s, _) = ac_session("");
+        type_str(&mut s, "sl");
+        s.on_key(&KeyEvent::plain(VK_ESCAPE));
+        let keys = [
+            KeyEvent::plain(VK_DOWN),
+            KeyEvent::plain(VK_UP),
+            KeyEvent::plain(VK_RETURN),
+            KeyEvent::plain(VK_SPACE),
+            KeyEvent::plain(VK_ESCAPE),
+            KeyEvent::plain(VK_TAB),
+            KeyEvent::plain(VK_BACK),
+            key('2'),
+            key('a'),
+        ];
+        for k in keys {
+            let before = s.clone();
+            let predicted = s.would_eat(&k);
+            assert_eq!(s.snapshot(), before.snapshot());
+            // Dismissed events collected before stay exactly as they were.
+            let out = s.clone().on_key(&KeyEvent::plain(VK_ESCAPE));
+            let again = before.clone().on_key(&KeyEvent::plain(VK_ESCAPE));
+            assert_eq!(out, again);
+            assert_eq!(s.clone().on_key(&k).eaten, predicted, "{k:?}");
+        }
+    }
+
+    #[test]
+    fn completer_is_queried_only_when_the_preedit_changes() {
+        let (mut s, c) = ac_session("");
+        type_str(&mut s, "sl");
+        let after_typing = c.calls.load(Ordering::SeqCst);
+        assert_eq!(after_typing, 1, "s is below predict_min_chars");
+        for vk in [VK_DOWN, VK_DOWN, VK_UP] {
+            s.on_key(&KeyEvent::plain(vk));
+            assert!(!s.would_eat(&KeyEvent::plain(VK_SHIFT)));
+        }
+        let _ = s.snapshot();
+        assert_eq!(c.calls.load(Ordering::SeqCst), after_typing);
+        s.on_key(&key('a'));
+        assert_eq!(c.calls.load(Ordering::SeqCst), after_typing + 1);
+    }
+
+    #[test]
+    fn set_completer_none_restores_v1() {
+        let (mut s, _) = ac_session("");
+        type_str(&mut s, "sl");
+        assert!(s.snapshot().completions.is_some());
+        s.set_completer(None);
+        assert_eq!(s.snapshot().completions, None);
+        let out = s.on_key(&KeyEvent::plain(VK_DOWN));
+        assert_eq!((out.commit.as_str(), out.eaten), ("سل", false));
+    }
+
+    #[test]
+    fn policy_and_config_changes_apply_to_an_open_composition() {
+        let (mut s, _) = ac_session("");
+        type_str(&mut s, "sl");
+        s.set_context_policy(ContextPolicy {
+            completions: false,
+            learning: false,
+        });
+        assert_eq!(s.snapshot().completions, None);
+        s.set_context_policy(ContextPolicy::default());
+        assert_eq!(s.snapshot().completions.unwrap().items.len(), 3);
+        let off = load_config("").config;
+        s.set_config(Arc::new(off));
+        assert_eq!(s.snapshot().completions, None);
+    }
+
+    #[test]
+    fn misbehaving_completer_output_is_filtered() {
+        struct Bad;
+        impl Completer for Bad {
+            fn complete(&self, prefix: &str, _: usize, _: &CompleteCtx) -> Vec<Completion> {
+                [
+                    prefix.to_string(),
+                    "x".into(),
+                    format!("{prefix}ام"),
+                    format!("{prefix}ام"),
+                ]
+                .into_iter()
+                .chain(["ي", "ك", "ة"].map(|a| format!("{prefix}{a}")))
+                .chain((0..20).map(|i| format!("{prefix}{}", "ب".repeat(i + 2))))
+                .map(|text| Completion { text, score: 1.0 })
+                .collect()
+            }
+        }
+        let mut s = session("[autocomplete]\nenabled = true\n");
+        s.set_completer(Some(Arc::new(Bad)));
+        let out = type_str(&mut s, "sl");
+        let items = out.completions.unwrap().items;
+        assert_eq!(items.len(), 5);
+        assert_eq!(items[0], "سلام");
+        assert!(items[1..].iter().all(|w| w.starts_with("سلبب")));
+    }
+}

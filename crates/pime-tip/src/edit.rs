@@ -12,7 +12,7 @@ use windows::Win32::UI::TextServices::{
     INSERT_TEXT_AT_SELECTION_FLAGS, TF_AE_NONE, TF_ANCHOR_END, TF_ANCHOR_START,
     TF_CONTEXT_EDIT_CONTEXT_FLAGS, TF_DEFAULT_SELECTION, TF_ES_ASYNC, TF_ES_ASYNCDONTCARE,
     TF_ES_READ, TF_ES_READWRITE, TF_ES_SYNC, TF_IAS_QUERYONLY, TF_SELECTION, TF_SELECTIONSTYLE,
-    TF_ST_CORRECTION,
+    TF_ST_CORRECTION, TF_TF_MOVESTART,
 };
 use windows_core::{implement, ComObject, Interface, HRESULT};
 
@@ -27,6 +27,11 @@ pub enum Job {
     Apply(EditPlan),
     /// The layout changed (or was missing when the popup opened): re-anchor the open popup.
     Reanchor,
+    /// Typing moved to another context while this composition was still open here: end it,
+    /// keeping its text (unless a queued Finish already did).
+    EndStale(ITfComposition),
+    /// Focus arrived here: read the context's input scope and set the autocomplete policy.
+    ReadPolicy,
 }
 
 /// How to request the session.
@@ -53,6 +58,16 @@ impl ITfEditSession_Impl for EditSession_Impl {
     fn DoEditSession(&self, ec: u32) -> windows_core::Result<()> {
         guard(|| unsafe {
             let svc = &self.service;
+            if let Job::EndStale(comp) = &self.job {
+                // Only ends a composition we still track: safe in any generation.
+                return end_stale(svc, &self.context, ec, comp);
+            }
+            if let Job::ReadPolicy = &self.job {
+                // Independent of the composition: valid in any generation.
+                let policy = crate::autocomplete::read_policy(&self.context, ec);
+                svc.set_context_policy_for(&self.context, policy);
+                return Ok(());
+            }
             // A plan queued before the host terminated our composition must not resurrect it
             // (or re-insert text the host already kept).
             if self.generation != svc.generation() {
@@ -60,11 +75,12 @@ impl ITfEditSession_Impl for EditSession_Impl {
                 return Ok(());
             }
             match &self.job {
-                Job::Apply(plan) => apply(svc, &self.context, ec, plan),
+                Job::Apply(plan) => apply(svc, &self.context, ec, plan, self.generation),
                 Job::Reanchor => {
                     reanchor(svc, &self.context, ec);
                     Ok(())
                 }
+                Job::EndStale(_) | Job::ReadPolicy => Ok(()),
             }
         })
     }
@@ -79,7 +95,7 @@ pub fn request(
 ) -> windows_core::Result<HRESULT> {
     let client_id = service.client_id();
     let generation = service.generation();
-    let read_only = matches!(job, Job::Reanchor);
+    let read_only = matches!(job, Job::Reanchor | Job::ReadPolicy);
     let session: ITfEditSession = EditSession {
         service,
         context: context.clone(),
@@ -111,6 +127,7 @@ unsafe fn apply(
     ctx: &ITfContext,
     ec: u32,
     plan: &EditPlan,
+    generation: u32,
 ) -> windows_core::Result<()> {
     let doc = (|| {
         for step in &plan.doc {
@@ -126,39 +143,74 @@ unsafe fn apply(
         svc.hide_candidates();
         return doc;
     }
+    if generation != svc.generation() {
+        // A step abandoned the session (composition refused): its candidates are void.
+        svc.hide_candidates();
+        return Ok(());
+    }
     match &plan.candidates {
         CandStep::Keep => {}
         CandStep::Hide => svc.hide_candidates(),
-        CandStep::Show(list) => {
-            let range = svc.composition().and_then(|c| c.GetRange().ok());
+        CandStep::Show(popup) => {
+            let range = svc.composition_in(ctx).and_then(|c| c.GetRange().ok());
             let units = match &range {
                 Some(r) => range_units(ec, r),
                 None => 0,
             };
             let a = anchor::compute(ctx, ec, range.as_ref());
-            svc.show_candidates(list, a, plan.side, units);
+            svc.show_candidates(popup, a, plan.side, units);
         }
     }
     Ok(())
 }
 
 unsafe fn reanchor(svc: &ComObject<TextService>, ctx: &ITfContext, ec: u32) {
-    let Some(range) = svc.composition().and_then(|c| c.GetRange().ok()) else {
+    let Some(range) = svc.composition_in(ctx).and_then(|c| c.GetRange().ok()) else {
         return;
     };
     let a = anchor::compute(ctx, ec, Some(&range));
     svc.reanchor_candidates(a);
 }
 
-/// Length of a range in UTF-16 units (bounded: a composition is one word).
-unsafe fn range_units(ec: u32, r: &ITfRange) -> usize {
-    let mut buf = [0u16; 256];
-    let mut got = 0u32;
-    if r.GetText(ec, 0, &mut buf, &mut got).is_ok() {
-        got as usize
-    } else {
-        0
+unsafe fn end_stale(
+    svc: &ComObject<TextService>,
+    ctx: &ITfContext,
+    ec: u32,
+    comp: &ITfComposition,
+) -> windows_core::Result<()> {
+    if !svc.take_stale(comp) {
+        return Ok(()); // already finished (or terminated by the host)
     }
+    let range = comp.GetRange()?;
+    if let Ok(prop) = ctx.GetProperty(&GUID_PROP_ATTRIBUTE) {
+        let _ = prop.Clear(ec, &range);
+    }
+    comp.EndComposition(ec)
+}
+
+/// Max units [`range_units`] reads per call; a range longer than `CHUNK * MAX_CHUNKS` counts as
+/// that many (only used to tell a highlight move from a relayout).
+const CHUNK: usize = 256;
+const MAX_CHUNKS: usize = 64;
+
+/// Length of a range in UTF-16 units, read in chunks so a long preedit is not miscounted.
+unsafe fn range_units(ec: u32, r: &ITfRange) -> usize {
+    let Ok(r) = r.Clone() else {
+        return 0;
+    };
+    let mut buf = [0u16; CHUNK];
+    let mut total = 0;
+    for _ in 0..MAX_CHUNKS {
+        let mut got = 0u32;
+        if r.GetText(ec, TF_TF_MOVESTART, &mut buf, &mut got).is_err() {
+            break;
+        }
+        total += got as usize;
+        if (got as usize) < CHUNK {
+            break;
+        }
+    }
+    total
 }
 
 unsafe fn compose(
@@ -168,14 +220,27 @@ unsafe fn compose(
     text: &str,
     pending: Option<std::ops::Range<usize>>,
 ) -> windows_core::Result<()> {
-    let comp = match svc.composition() {
+    // Only a composition of THIS context: after a focus change the stored one may belong to
+    // the previous document, where our edit cookie is invalid.
+    let comp = match svc.composition_in(ctx) {
         Some(c) => c,
-        None => {
-            let c = start_composition(svc, ctx, ec)?;
-            svc.set_composition(Some(c.clone()));
-            c
-        }
+        None => match start_composition(svc, ctx, ec) {
+            Ok(c) => c,
+            Err(_) => {
+                // The host refuses compositions: type the preedit as plain text and start the
+                // word over, so the session never runs ahead of an invisible composition.
+                svc.abandon_session();
+                return insert_plain(ctx, ec, text);
+            }
+        },
     };
+    if let Some(old) = svc.adopt_composition(&comp) {
+        // Typing moved here while `old` is still open elsewhere: end it in its own context
+        // (after any Finish already queued there, which then makes this a no-op).
+        if let Ok(old_ctx) = old.GetRange().and_then(|r| r.GetContext()) {
+            let _queued = request(svc.clone(), &old_ctx, Job::EndStale(old), Mode::Async);
+        }
+    }
     let range = comp.GetRange()?;
     range.SetText(ec, TF_ST_CORRECTION, &wide(text))?;
     // Attributes are cosmetic: a host that rejects them must not stop composing.
@@ -190,8 +255,8 @@ unsafe fn finish_or_insert(
     ec: u32,
     text: &str,
 ) -> windows_core::Result<()> {
-    if let Some(comp) = svc.composition() {
-        svc.set_composition(None);
+    if let Some(comp) = svc.composition_in(ctx) {
+        svc.release_composition(&comp);
         return finish(ctx, ec, &comp, text);
     }
     if text.is_empty() {
@@ -287,15 +352,17 @@ unsafe fn insert(
 ) -> windows_core::Result<()> {
     match start_composition(svc, ctx, ec) {
         Ok(comp) => finish(ctx, ec, &comp, text),
-        Err(_) => {
-            let range = ctx.cast::<ITfInsertAtSelection>()?.InsertTextAtSelection(
-                ec,
-                INSERT_TEXT_AT_SELECTION_FLAGS(0),
-                &wide(text),
-            )?;
-            caret_to_end(ctx, ec, &range)
-        }
+        Err(_) => insert_plain(ctx, ec, text),
     }
+}
+
+unsafe fn insert_plain(ctx: &ITfContext, ec: u32, text: &str) -> windows_core::Result<()> {
+    let range = ctx.cast::<ITfInsertAtSelection>()?.InsertTextAtSelection(
+        ec,
+        INSERT_TEXT_AT_SELECTION_FLAGS(0),
+        &wide(text),
+    )?;
+    caret_to_end(ctx, ec, &range)
 }
 
 unsafe fn caret_to_end(ctx: &ITfContext, ec: u32, range: &ITfRange) -> windows_core::Result<()> {

@@ -82,10 +82,19 @@ allow_arabic_forms = false
 allow_sequences = false
 
 [autocomplete]
-# Word suggestions are not available yet; these settings are ignored for now.
+# Word suggestions below the alternatives. Off by default: turn on "enabled" to
+# use them. Learned words stay on this computer; "pime-settings --clear-history"
+# deletes them.
 enabled = false
+
+# Letters of the word typed so far before suggestions appear (1 or more).
 predict_min_chars = 2
+
+# Remember the suggestions you pick (and pass over) to rank them: true or false.
 learning = true
+
+# How many suggestions to show at most (1-9).
+max_completions = 5
 
 # Your own letter map changes, applied last. Each entry is a Latin key (1 to 3
 # characters, in the section for its length) and the letters it offers; the first

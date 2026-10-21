@@ -82,3 +82,24 @@ All issues in one file are reported together (one bad entry never hides another)
 ## 7. Golden `expect.applied` convention
 
 `applied` maps an option name (`"digits"`) or a dotted map path (`"map.singles.b"`, `"autocomplete.enabled"`) to the effective resolved value after fallback. Skipped entries show the preset's value.
+
+## 8. `[autocomplete]` (autocomplete phase; supersedes the table in section 3)
+
+Contract and behaviour: [`autocomplete.md`](autocomplete.md). Validated through `autocomplete_specs()` like `[options]`; messages use the existing kinds of section 6.
+
+| Key | Type | Allowed | Default | Effect |
+|---|---|---|---|---|
+| `enabled` | bool | `true`, `false` | `false` | Show dictionary word completions below the alternates. Off = v1 behaviour exactly. |
+| `predict_min_chars` | integer | >= 1 | `2` | Persian letters (ZWNJ not counted) in the preedit before completions appear. `0` or less: `invalid_value`, default kept. |
+| `learning` | bool | `true`, `false` | `true` | Remember accepted / passed-over completions locally (`%LOCALAPPDATA%\PersianPhoneticIme\history.bin`) and use them for ranking. Off: nothing recorded, history ignored, the file is left as is. |
+| `max_completions` **(addition)** | integer | 1-9 (clamped) | `5` | Completion rows shown; values above 9 become 9 silently (like `candidate_size`); `0` or less: `invalid_value`, default kept. The popup never exceeds 9 rows, so fewer appear when there are many alternates. |
+
+Example messages (wording per section 6):
+
+```
+config.toml, line 14: enabled must be true or false (for example true), not text.
+config.toml, line 15: max_completions must be a whole number (for example 5), not text.
+config.toml, line 3: unknown setting "max_completion". Did you mean "max_completions"?
+```
+
+Golden `expect.applied` keys: `autocomplete.enabled`, `autocomplete.predict_min_chars`, `autocomplete.learning`, `autocomplete.max_completions`.

@@ -1,0 +1,62 @@
+[package]
+name = "pime-fuzz"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# Standalone package: deliberately not a member of the root workspace.
+[workspace]
+
+[package.metadata]
+cargo-fuzz = true
+
+[features]
+default = ["libfuzzer"]
+libfuzzer = ["dep:libfuzzer-sys"]
+
+[dependencies]
+pime-core = { path = "../crates/pime-core" }
+pime-dict = { path = "../crates/pime-dict" }
+libfuzzer-sys = { version = "0.4", optional = true }
+
+[[bin]]
+name = "session_keys"
+path = "fuzz_targets/session_keys.rs"
+test = false
+doc = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "config_parse"
+path = "fuzz_targets/config_parse.rs"
+test = false
+doc = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "session_complete"
+path = "fuzz_targets/session_complete.rs"
+test = false
+doc = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "dict_from_bytes"
+path = "fuzz_targets/dict_from_bytes.rs"
+test = false
+doc = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "dict_build_tsv"
+path = "fuzz_targets/dict_build_tsv.rs"
+test = false
+doc = false
+required-features = ["libfuzzer"]
+
+[[bin]]
+name = "history_from_bytes"
+path = "fuzz_targets/history_from_bytes.rs"
+test = false
+doc = false
+required-features = ["libfuzzer"]

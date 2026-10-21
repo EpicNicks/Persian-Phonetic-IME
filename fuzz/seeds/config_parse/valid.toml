@@ -1,0 +1,5 @@
+preset = "minimal"
+[options]
+allow_arabic_forms = true
+[map.singles]
+"s" = ["a","b"]

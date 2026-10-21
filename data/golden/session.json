@@ -330,15 +330,16 @@
   },
   {
    "type": "session",
-   "name": "number out of range falls through to digit",
+   "name": "number out of range is eaten",
    "config": "qamooscheh",
    "keys": [
     "s",
     "5"
    ],
-   "committed": "س۵",
-   "preedit": "",
-   "notes": "ASSUMPTION: list has 3 items; 5 is out of range so it acts as a digit (commit preedit, insert ۵)"
+   "committed": "",
+   "preedit": "س",
+   "notes": "list has 3 items; 5 is out of range so the digit is eaten with no output and the list stays open",
+   "last_eaten": true
   },
   {
    "type": "session",
@@ -674,7 +675,7 @@
     "m",
     "Space"
    ],
-   "committed": "می\u200cخواهم ",
+   "committed": "می‌خواهم ",
    "preedit": "",
    "notes": "one composition; ZWNJ is a buffer token"
   },
@@ -685,7 +686,7 @@
    "keys": [
     "ShiftSpace"
    ],
-   "committed": "\u200c",
+   "committed": "‌",
    "preedit": "",
    "notes": "toggle-off on a second tap needs a document read-back, so it is not part of the golden contract"
   },
@@ -699,7 +700,7 @@
     "h",
     "Space"
    ],
-   "committed": "س\u200cه ",
+   "committed": "س‌ه ",
    "preedit": ""
   },
   {
@@ -724,7 +725,7 @@
     "ShiftSpace"
    ],
    "committed": "",
-   "preedit": "م\u200c"
+   "preedit": "م‌"
   },
   {
    "type": "session",
@@ -735,7 +736,7 @@
     "ShiftSpace",
     "2"
    ],
-   "committed": "س\u200c۲",
+   "committed": "س‌۲",
    "preedit": "",
    "notes": "last token is ZWNJ, not ambiguous, so no list: 2 is a digit"
   },
@@ -1354,6 +1355,403 @@
    ],
    "committed": "1،2",
    "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "trailing zwnj dropped on space",
+   "config": "qamooscheh",
+   "keys": [
+    "m",
+    "ShiftSpace",
+    "Space"
+   ],
+   "committed": "م ",
+   "preedit": "",
+   "last_eaten": true,
+   "notes": "a ZWNJ at the end of a word is not committed"
+  },
+  {
+   "type": "session",
+   "name": "trailing zwnj dropped on enter",
+   "config": "qamooscheh",
+   "keys": [
+    "m",
+    "ShiftSpace",
+    "Enter"
+   ],
+   "committed": "م",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "inner zwnj kept",
+   "config": "qamooscheh",
+   "keys": [
+    "m",
+    "ShiftSpace",
+    "i",
+    "Space"
+   ],
+   "committed": "م‌ی ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "ctrl chord commits and passes",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Ctrl+a"
+   ],
+   "committed": "س",
+   "preedit": "",
+   "last_eaten": false
+  },
+  {
+   "type": "session",
+   "name": "alt chord commits and passes",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Alt+x"
+   ],
+   "committed": "س",
+   "preedit": "",
+   "last_eaten": false
+  },
+  {
+   "type": "session",
+   "name": "ctrl chord idle passes",
+   "config": "qamooscheh",
+   "keys": [
+    "Ctrl+c"
+   ],
+   "committed": "",
+   "preedit": "",
+   "last_eaten": false
+  },
+  {
+   "type": "session",
+   "name": "delete commits and passes",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Delete"
+   ],
+   "committed": "س",
+   "preedit": "",
+   "last_eaten": false
+  },
+  {
+   "type": "session",
+   "name": "home commits and passes",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Home"
+   ],
+   "committed": "س",
+   "preedit": "",
+   "last_eaten": false
+  },
+  {
+   "type": "session",
+   "name": "end commits and passes",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "End"
+   ],
+   "committed": "س",
+   "preedit": "",
+   "last_eaten": false
+  },
+  {
+   "type": "session",
+   "name": "idle delete passes",
+   "config": "qamooscheh",
+   "keys": [
+    "Delete"
+   ],
+   "committed": "",
+   "preedit": "",
+   "last_eaten": false
+  },
+  {
+   "type": "session",
+   "name": "numpad digit idle",
+   "config": "qamooscheh",
+   "keys": [
+    "Numpad5"
+   ],
+   "committed": "۵",
+   "preedit": "",
+   "last_eaten": true
+  },
+  {
+   "type": "session",
+   "name": "numpad digit picks candidate",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Numpad2"
+   ],
+   "committed": "ص",
+   "preedit": "",
+   "last_eaten": true
+  },
+  {
+   "type": "session",
+   "name": "numpad digit out of range eaten",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Numpad9"
+   ],
+   "committed": "",
+   "preedit": "س",
+   "last_eaten": true
+  },
+  {
+   "type": "session",
+   "name": "shift tab moves highlight up",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "ShiftTab"
+   ],
+   "committed": "",
+   "preedit": "ث",
+   "last_eaten": true
+  },
+  {
+   "type": "session",
+   "name": "shift tab then space commits highlighted",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "ShiftTab",
+    "Space"
+   ],
+   "committed": "ث ",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "capslock alone does not commit",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "CapsLock",
+    "a"
+   ],
+   "committed": "",
+   "preedit": "سا"
+  },
+  {
+   "type": "session",
+   "name": "capslock is not eaten idle",
+   "config": "qamooscheh",
+   "keys": [
+    "CapsLock"
+   ],
+   "committed": "",
+   "preedit": ""
+  },
+  {
+   "type": "session",
+   "name": "escape then tab reopens list",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Escape",
+    "Tab"
+   ],
+   "committed": "",
+   "preedit": "س",
+   "last_eaten": true,
+   "notes": "Escape hides the list; Tab shows it again without moving the highlight"
+  },
+  {
+   "type": "session",
+   "name": "escape then tab then tab advances",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Escape",
+    "Tab",
+    "Tab"
+   ],
+   "committed": "",
+   "preedit": "ص",
+   "last_eaten": true
+  },
+  {
+   "type": "session",
+   "name": "escape keeps preedit",
+   "config": "qamooscheh",
+   "keys": [
+    "s",
+    "Escape"
+   ],
+   "committed": "",
+   "preedit": "س",
+   "last_eaten": true
+  },
+  {
+   "type": "session",
+   "name": "long buffer is flushed at the cap",
+   "config": "qamooscheh",
+   "keys": [
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b"
+   ],
+   "committed": "بببببببببببببببببببببببببببببببببببببببببببببببببببببببببببببببب",
+   "preedit": "بببببب",
+   "last_eaten": true,
+   "notes": "the 65th letter commits the first 64 and starts a new composition"
+  },
+  {
+   "type": "session",
+   "name": "exactly at the cap is not flushed",
+   "config": "qamooscheh",
+   "keys": [
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b",
+    "b"
+   ],
+   "committed": "",
+   "preedit": "بببببببببببببببببببببببببببببببببببببببببببببببببببببببببببببببب",
+   "last_eaten": true
   }
  ]
 }

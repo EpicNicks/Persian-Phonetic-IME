@@ -3,7 +3,9 @@
 //!
 //! The typed text stays in the window; it is never saved or logged.
 
-use pime_core::{keys, Dictionary, KeyEvent, Output, ResolvedConfig, Session};
+use pime_core::{
+    keys, Completer, ContextPolicy, Dictionary, KeyEvent, Output, ResolvedConfig, Session,
+};
 use std::sync::Arc;
 
 /// What the IME would have produced for the typed text.
@@ -15,6 +17,8 @@ pub struct Preview {
     pub preedit: String,
     /// The alternatives offered for the last letter, if any.
     pub candidates: Vec<String>,
+    /// The word completions offered below the alternatives, if any.
+    pub completions: Vec<String>,
 }
 
 impl Preview {
@@ -43,6 +47,23 @@ impl Preview {
     }
 }
 
+impl Preview {
+    /// "Suggestions: 1 word  2 word", or empty. Numbering continues after the alternatives.
+    pub fn completions_line(&self) -> String {
+        if self.completions.is_empty() {
+            return String::new();
+        }
+        let first = self.candidates.len();
+        let items: Vec<String> = self
+            .completions
+            .iter()
+            .enumerate()
+            .map(|(i, c)| format!("{} {c}\u{200E}", first + i + 1))
+            .collect();
+        format!("Suggestions: {}", items.join("   "))
+    }
+}
+
 fn apply(out: Output, committed: &mut String, last: &mut Output, passthrough: Option<char>) {
     committed.push_str(&out.commit);
     if !out.eaten {
@@ -57,7 +78,22 @@ fn apply(out: Output, committed: &mut String, last: &mut Output, passthrough: Op
 /// Persian text, emoji, ...) are inserted as they are, after committing the word;
 /// a line break is Enter; a backspace character (U+0008) is Backspace.
 pub fn preview(cfg: Arc<ResolvedConfig>, latin: &str) -> Preview {
+    preview_with(cfg, latin, None)
+}
+
+/// [`preview`] with a word completer (the real dictionary in the window). Learning
+/// is off, so nothing typed is ever recorded.
+pub fn preview_with(
+    cfg: Arc<ResolvedConfig>,
+    latin: &str,
+    completer: Option<Arc<dyn Completer>>,
+) -> Preview {
     let mut session = Session::new(cfg, Arc::new(Dictionary::empty()));
+    session.set_context_policy(ContextPolicy {
+        completions: true,
+        learning: false,
+    });
+    session.set_completer(completer);
     let mut committed = String::new();
     let mut last = Output::default();
     for c in latin.chars() {
@@ -99,6 +135,7 @@ pub fn preview(cfg: Arc<ResolvedConfig>, latin: &str) -> Preview {
         committed,
         preedit: last.preedit,
         candidates: last.candidates.map(|l| l.items).unwrap_or_default(),
+        completions: last.completions.map(|l| l.items).unwrap_or_default(),
     }
 }
 
@@ -148,6 +185,22 @@ mod tests {
         let p = preview(cfg(""), "ab\u{2764}\r\nb");
         assert_eq!(p.committed, "اب\u{2764}\n");
         assert_eq!(p.preedit, "ب");
+    }
+
+    #[test]
+    fn completions_from_a_completer_without_learning() {
+        let c: Arc<dyn Completer> = Arc::new(pime_core::ListCompleter::new([
+            ("سالام".to_string(), 10.0),
+            ("سالامت".to_string(), 5.0),
+        ]));
+        let on = cfg("[autocomplete]\nenabled = true\npredict_min_chars = 2\n");
+        let p = preview_with(on.clone(), "salam", Some(c.clone()));
+        assert!(p.completions.contains(&"سالامت".to_string()), "{p:?}");
+        assert!(p.completions_line().starts_with("Suggestions: "));
+        assert!(preview_with(on, "salam", None).completions.is_empty());
+        assert!(preview_with(cfg(""), "salam", Some(c))
+            .completions
+            .is_empty());
     }
 
     #[test]

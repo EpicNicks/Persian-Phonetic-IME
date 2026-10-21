@@ -21,7 +21,6 @@
 //! threaded: created, used and shut down on the text service's UI thread.
 
 use std::cell::{Cell, RefCell};
-use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::rc::Rc;
 
 /// Longest tooltip (in characters) we hand to TSF.
@@ -107,12 +106,18 @@ impl ButtonState {
         }
     }
 
-    pub fn menu(&self) -> Vec<(u32, &'static str)> {
-        let mut m = vec![(MENU_SETTINGS, "Settings...")];
+    /// `(id, label, enabled)`. `can_launch`: see [`launch_allowed`].
+    pub fn menu(&self, can_launch: bool) -> Vec<(u32, &'static str, bool)> {
+        let settings = if can_launch {
+            "Settings..."
+        } else {
+            "Settings... (open from the Start menu)"
+        };
+        let mut m = vec![(MENU_SETTINGS, settings, can_launch)];
         if self.badge.is_some() {
-            m.push((MENU_FIX, "Fix settings problem..."));
+            m.push((MENU_FIX, "Fix settings problem...", can_launch));
         }
-        m.push((MENU_RECHECK, "Check settings again"));
+        m.push((MENU_RECHECK, "Check settings again", true));
         m
     }
 
@@ -136,6 +141,27 @@ impl ButtonState {
         self.badge = text;
         UPDATE_ALL
     }
+}
+
+const SECURITY_MANDATORY_MEDIUM_RID: u32 = 0x2000;
+
+/// Whether `pime-settings.exe` may be started from this host with `CreateProcessW`.
+///
+/// The child inherits the host's token. From an AppContainer (UWP / packaged apps) it could
+/// not read `%APPDATA%`; from an elevated or low-integrity host it would run elevated (with
+/// over-the-shoulder UAC, as another user writing another profile) or sandboxed. Starting it
+/// unelevated from there needs the shell (`IShellDispatch2`) and still fails in AppContainers,
+/// so instead the menu item is greyed and points at the Start-menu shortcut. Allowed only
+/// when the host runs at the shell's integrity band (so UAC-off machines still work).
+/// `shell_il` is `None` when explorer is not found or not readable: medium is assumed.
+pub(crate) fn launch_allowed(
+    app_container: bool,
+    host_il: Option<u32>,
+    shell_il: Option<u32>,
+) -> bool {
+    let band = |rid: u32| rid & 0xF000; // medium-plus (0x2100) counts as medium
+    let shell = shell_il.unwrap_or(SECURITY_MANDATORY_MEDIUM_RID);
+    !app_container && host_il.is_some_and(|h| band(h) == band(shell))
 }
 
 /// Command line for `pime-settings.exe` (the exe path quoted, then the arguments).
@@ -189,7 +215,7 @@ mod win {
         implement, ComObject, Interface, Ref, Result, BOOL, BSTR, GUID, HSTRING, PCWSTR, PWSTR,
     };
     use windows::Win32::Foundation::{
-        CloseHandle, COLORREF, E_FAIL, E_INVALIDARG, HMODULE, POINT, RECT,
+        CloseHandle, COLORREF, E_ACCESSDENIED, E_FAIL, E_INVALIDARG, HANDLE, HMODULE, POINT, RECT,
     };
     use windows::Win32::Graphics::Gdi::{
         CreateBitmap, CreateCompatibleDC, CreateDIBSection, CreateFontW, DeleteDC, DeleteObject,
@@ -198,6 +224,10 @@ mod win {
         DEFAULT_CHARSET, DIB_RGB_COLORS, DT_CENTER, DT_NOPREFIX, DT_SINGLELINE, DT_VCENTER,
         FW_SEMIBOLD, OUT_DEFAULT_PRECIS, TRANSPARENT,
     };
+    use windows::Win32::Security::{
+        GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TokenIntegrityLevel,
+        TokenIsAppContainer, TOKEN_MANDATORY_LABEL, TOKEN_QUERY,
+    };
     use windows::Win32::System::LibraryLoader::{
         GetModuleFileNameW, GetModuleHandleExW, GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
         GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -205,7 +235,8 @@ mod win {
     use windows::Win32::System::Ole::{CONNECT_E_CANNOTCONNECT, CONNECT_E_NOCONNECTION};
     use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
     use windows::Win32::System::Threading::{
-        CreateProcessW, CREATE_NO_WINDOW, PROCESS_INFORMATION, STARTUPINFOW,
+        CreateProcessW, GetCurrentProcess, OpenProcess, OpenProcessToken, CREATE_NO_WINDOW,
+        PROCESS_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, STARTUPINFOW,
     };
     use windows::Win32::System::Variant::VARIANT;
     use windows::Win32::UI::TextServices::{
@@ -213,18 +244,17 @@ mod win {
         ITfLangBarItemSink, ITfLangBarItem_Impl, ITfMenu, ITfSource, ITfSource_Impl, ITfThreadMgr,
         TfLBIClick, GUID_COMPARTMENT_KEYBOARD_OPENCLOSE, GUID_LBI_INPUTMODE, TF_LANGBARITEMINFO,
         TF_LBI_CLK_LEFT, TF_LBI_CLK_RIGHT, TF_LBI_STYLE_BTN_BUTTON, TF_LBI_STYLE_SHOWNINTRAY,
+        TF_LBMENUF_GRAYED,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         AllowSetForegroundWindow, AppendMenuW, CreateIconIndirect, CreatePopupMenu,
-        CreateWindowExW, DestroyMenu, DestroyWindow, GetSystemMetrics, TrackPopupMenuEx, HICON,
-        ICONINFO, MF_STRING, SM_CXSMICON, TPMPARAMS, TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON,
-        TPM_VERTICAL, WS_EX_TOOLWINDOW, WS_POPUP,
+        CreateWindowExW, DestroyMenu, DestroyWindow, GetShellWindow, GetSystemMetrics,
+        GetWindowThreadProcessId, TrackPopupMenuEx, HICON, ICONINFO, MF_GRAYED, MF_STRING,
+        SM_CXSMICON, TPMPARAMS, TPM_NONOTIFY, TPM_RETURNCMD, TPM_RIGHTBUTTON, TPM_VERTICAL,
+        WS_EX_TOOLWINDOW, WS_POPUP,
     };
 
-    /// Panic -> E_FAIL. Local to this module until the shell exposes a shared guard.
-    pub(crate) fn guard<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
-        catch_unwind(AssertUnwindSafe(f)).unwrap_or_else(|_| Err(E_FAIL.into()))
-    }
+    use crate::exports::{guard, ObjToken};
 
     #[implement(ITfLangBarItemButton, ITfSource)]
     pub(crate) struct Button {
@@ -236,6 +266,7 @@ mod win {
         thread_mgr: RefCell<Option<ITfThreadMgr>>,
         client_id: u32,
         on_recheck: RefCell<Option<Rc<dyn Fn()>>>,
+        _tok: ObjToken,
     }
 
     impl Button {
@@ -248,6 +279,7 @@ mod win {
                 thread_mgr: RefCell::new(thread_mgr),
                 client_id,
                 on_recheck: RefCell::new(None),
+                _tok: ObjToken::new(),
             }
         }
 
@@ -291,6 +323,9 @@ mod win {
 
         fn run_command(&self, id: u32) -> Result<()> {
             match id {
+                MENU_SETTINGS | MENU_FIX if !settings_launch_allowed() => {
+                    Err(E_ACCESSDENIED.into())
+                }
                 MENU_SETTINGS => launch_settings(&[]),
                 MENU_FIX => launch_settings(&["--show-errors"]),
                 MENU_RECHECK => {
@@ -306,13 +341,18 @@ mod win {
         }
 
         fn show_menu(&self, pt: POINT, area: *const RECT) -> Result<()> {
-            let items = self.state.borrow().menu();
+            let items = self.state.borrow().menu(settings_launch_allowed());
             // SAFETY: Win32 calls on objects created and destroyed here; `area` comes from TSF
             // and is only read when non-null.
             let cmd = unsafe {
                 let menu = CreatePopupMenu()?;
-                for (id, label) in items {
-                    let _ = AppendMenuW(menu, MF_STRING, id as usize, &HSTRING::from(label));
+                for (id, label, enabled) in items {
+                    let flags = if enabled {
+                        MF_STRING
+                    } else {
+                        MF_STRING | MF_GRAYED
+                    };
+                    let _ = AppendMenuW(menu, flags, id as usize, &HSTRING::from(label));
                 }
                 // TrackPopupMenuEx needs an owner window on this thread; a hidden STATIC popup
                 // needs no class registration (nothing left behind when the DLL unloads).
@@ -407,13 +447,15 @@ mod win {
         fn InitMenu(&self, pmenu: Ref<ITfMenu>) -> Result<()> {
             guard(|| {
                 let menu = pmenu.ok()?;
-                for (id, label) in self.state.borrow().menu() {
+                let items = self.state.borrow().menu(settings_launch_allowed());
+                for (id, label, enabled) in items {
                     let w: Vec<u16> = label.encode_utf16().collect();
+                    let flags = if enabled { 0 } else { TF_LBMENUF_GRAYED };
                     // SAFETY: COM call; null bitmaps and no submenu out-pointer are allowed.
                     unsafe {
                         menu.AddMenuItem(
                             id,
-                            0,
+                            flags,
                             Default::default(),
                             Default::default(),
                             &w,
@@ -593,6 +635,79 @@ mod win {
     /// `pime-settings.exe` next to this DLL (or next to the test exe in tests).
     pub(crate) fn settings_exe() -> Option<PathBuf> {
         Some(module_path()?.parent()?.join("pime-settings.exe"))
+    }
+
+    /// `(is AppContainer, integrity RID)` of a process token.
+    fn token_facts(process: HANDLE) -> Option<(bool, u32)> {
+        // SAFETY: token queries into correctly sized locals; the SID pointer points into `buf`,
+        // which outlives its use; the token handle is closed below.
+        unsafe {
+            let mut tok = HANDLE::default();
+            OpenProcessToken(process, TOKEN_QUERY, &mut tok).ok()?;
+            let facts = (|| {
+                let mut len = 0u32;
+                let mut ac = 0u32;
+                GetTokenInformation(
+                    tok,
+                    TokenIsAppContainer,
+                    Some(&mut ac as *mut u32 as *mut c_void),
+                    std::mem::size_of::<u32>() as u32,
+                    &mut len,
+                )
+                .ok()?;
+                // TOKEN_MANDATORY_LABEL plus its SID; u64 for alignment.
+                let mut buf = [0u64; 16];
+                GetTokenInformation(
+                    tok,
+                    TokenIntegrityLevel,
+                    Some(buf.as_mut_ptr() as *mut c_void),
+                    std::mem::size_of_val(&buf) as u32,
+                    &mut len,
+                )
+                .ok()?;
+                let sid = (*(buf.as_ptr() as *const TOKEN_MANDATORY_LABEL)).Label.Sid;
+                let count = *GetSidSubAuthorityCount(sid);
+                if count == 0 {
+                    return None;
+                }
+                Some((ac != 0, *GetSidSubAuthority(sid, u32::from(count - 1))))
+            })();
+            let _ = CloseHandle(tok);
+            facts
+        }
+    }
+
+    fn shell_integrity() -> Option<u32> {
+        // SAFETY: plain queries; the process handle is closed below.
+        unsafe {
+            let shell = GetShellWindow();
+            if shell.is_invalid() {
+                return None;
+            }
+            let mut pid = 0u32;
+            GetWindowThreadProcessId(shell, Some(&mut pid));
+            if pid == 0 {
+                return None;
+            }
+            let h = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+            let facts = token_facts(h);
+            let _ = CloseHandle(h);
+            facts.map(|f| f.1)
+        }
+    }
+
+    /// [`launch_allowed`] for this process; computed once (only on a menu click).
+    pub(crate) fn settings_launch_allowed() -> bool {
+        static ALLOWED: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ALLOWED.get_or_init(|| {
+            // SAFETY: pseudo-handle, never closed.
+            let host = token_facts(unsafe { GetCurrentProcess() });
+            launch_allowed(
+                host.is_none_or(|h| h.0),
+                host.map(|h| h.1),
+                shell_integrity(),
+            )
+        })
     }
 
     /// Starts `pime-settings.exe` without a console window (it is a console-subsystem exe).
@@ -875,6 +990,26 @@ mod win {
         }
 
         #[test]
+        fn own_token_is_readable() {
+            // SAFETY: pseudo-handle.
+            let (ac, rid) = token_facts(unsafe { GetCurrentProcess() }).unwrap();
+            assert!(!ac, "tests do not run in an AppContainer");
+            assert!(rid >= 0x1000, "at least low integrity: {rid:#x}");
+            // Value depends on whether the test shell is elevated; it must just not panic.
+            let _ = settings_launch_allowed();
+        }
+
+        #[test]
+        fn live_button_blocks_dll_unload() {
+            let bar = LangBar::detached();
+            assert_eq!(
+                crate::exports::DllCanUnloadNow(),
+                windows::Win32::Foundation::S_FALSE
+            );
+            drop(bar);
+        }
+
+        #[test]
         fn settings_exe_is_next_to_module() {
             let exe = settings_exe().unwrap();
             assert_eq!(exe.file_name().unwrap(), "pime-settings.exe");
@@ -973,9 +1108,10 @@ mod tests {
             }
         );
         assert_eq!(
-            s.menu().iter().map(|m| m.0).collect::<Vec<_>>(),
+            s.menu(true).iter().map(|m| m.0).collect::<Vec<_>>(),
             [MENU_SETTINGS, MENU_RECHECK]
         );
+        assert!(s.menu(true).iter().all(|m| m.2));
 
         assert_ne!(s.set_badge(Some("Problem here.".into())), 0);
         assert_eq!(
@@ -986,9 +1122,19 @@ mod tests {
         assert!(s.icon().warning);
         assert!(s.tooltip().starts_with("Problem here. Persian Phonetic"));
         assert_eq!(
-            s.menu().iter().map(|m| m.0).collect::<Vec<_>>(),
+            s.menu(true).iter().map(|m| m.0).collect::<Vec<_>>(),
             [MENU_SETTINGS, MENU_FIX, MENU_RECHECK]
         );
+        let greyed = s.menu(false);
+        assert_eq!(
+            greyed.iter().map(|m| (m.0, m.2)).collect::<Vec<_>>(),
+            [
+                (MENU_SETTINGS, false),
+                (MENU_FIX, false),
+                (MENU_RECHECK, true)
+            ]
+        );
+        assert!(greyed[0].1.contains("Start menu"));
         assert_ne!(s.set_open(false), 0);
         assert_eq!(s.set_open(false), 0);
         assert_eq!(s.text(), "A");
@@ -1007,6 +1153,30 @@ mod tests {
 
         s.set_badge(Some("x ".repeat(400)));
         assert!(s.tooltip().chars().count() <= TOOLTIP_MAX_CHARS);
+    }
+
+    #[test]
+    fn launch_policy() {
+        let (low, med, med_plus, high) = (0x1000, 0x2000, 0x2100, 0x3000);
+        assert!(launch_allowed(false, Some(med), Some(med)));
+        assert!(launch_allowed(false, Some(med_plus), Some(med)));
+        assert!(
+            launch_allowed(false, Some(med), None),
+            "no shell: medium assumed"
+        );
+        assert!(launch_allowed(false, Some(high), Some(high)), "UAC off");
+        assert!(
+            !launch_allowed(false, Some(high), Some(med)),
+            "elevated host"
+        );
+        assert!(!launch_allowed(false, Some(high), None));
+        assert!(
+            !launch_allowed(false, Some(low), Some(med)),
+            "low integrity host"
+        );
+        assert!(!launch_allowed(true, Some(low), Some(med)), "AppContainer");
+        assert!(!launch_allowed(true, Some(med), Some(med)));
+        assert!(!launch_allowed(false, None, Some(med)), "token unreadable");
     }
 
     #[test]

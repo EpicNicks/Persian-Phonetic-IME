@@ -17,7 +17,9 @@
 pub mod backup;
 pub mod cli;
 pub mod defaults;
+pub mod dictionary;
 pub mod edit;
+pub mod learned;
 pub mod options;
 pub mod paths;
 pub mod reload;

@@ -7,7 +7,10 @@
              PersianPhoneticIme.<Version>.x86.dll   TIP, 32-bit (same CLSID, WOW64 registry view)
              pime-setup.x64.exe / pime-setup.x86.exe  registration helpers (crates/pime-setup)
              pime-settings.exe                       settings app (crates/pime-settings)
-  Presets are compiled into the DLL, so there are no data files.
+             dict.bin                                autocomplete dictionary (one file for x64 and x86)
+             THIRD-PARTY-NOTICES.txt, licenses\CC-BY-SA-4.0.txt
+  Presets are compiled into the DLL. Per-user history.bin and config live under %APPDATA% and are
+  never installed or removed by this package.
 
   Registration: deferred, elevated (SYSTEM) custom actions run the helper of the matching bitness,
   which calls the DLL's DllRegisterServer / DllUnregisterServer (InprocServer32 + RegisterProfile +
@@ -112,6 +115,14 @@
           <Shortcut Id="SettingsShortcut" Directory="ProgramMenuFolder" Name="Persian Phonetic IME Settings"
                     WorkingDirectory="INSTALLFOLDER" Advertise="no" />
         </File>
+      </Component>
+      <!-- dict.bin is read by the DLLs (mapped/loaded, never held open by the installer). It sits
+           next to both DLLs. It is in the versioned folder, so an upgrade installs the new one beside
+           the old; the old copy goes with the old product (or at reboot if a host app maps it). -->
+      <Component Id="Dictionary">
+        <File Id="DictBin" Name="dict.bin" Source="$(StageDir)\dict.bin" KeyPath="yes" />
+        <File Id="ThirdPartyNotices" Name="THIRD-PARTY-NOTICES.txt" Source="$(StageDir)\THIRD-PARTY-NOTICES.txt" />
+        <File Id="LicenseCcBySa" Name="CC-BY-SA-4.0.txt" Source="$(StageDir)\licenses\CC-BY-SA-4.0.txt" Subdirectory="licenses" />
       </Component>
 <?if $(Placeholder) = 1?>
       <Component Id="PlaceholderNote">

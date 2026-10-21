@@ -1,0 +1,33 @@
+# Words never offered as completions (one per line, normalised spelling; # starts a comment).
+# Only unambiguous vulgarity. Ambiguous words (سکس, کس, گه, تخم, ناموس, ...) are NOT here.
+کون
+کونم
+کونش
+کونت
+کونی
+کونه
+کونته
+کونده
+کونمو
+کونتون
+کیر
+کیرم
+کیرش
+کیرت
+کیرا
+کیری
+جنده
+مادرجنده
+جاکش
+کسکش
+کسخل
+کسشعر
+حرومزاده
+حرامزاده
+دیوث
+قحبه
+مادرقحبه
+خایه
+گوه
+لاشی
+گاییدم

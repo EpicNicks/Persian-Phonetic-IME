@@ -23,8 +23,8 @@ Stable, distilled architecture. Behaviour, config schema and the decision table 
 
 - `pime-core`: no Windows dependencies. Config resolution (preset, options, raw map, validation), tokeniser and renderer, `Session` state machine, US-layout and punctuation tables. Builds and tests on any host.
 - `pime-candidate-ui`: candidate window. It takes its own plain `CandidateView`, so it does not depend on `pime-core`; an adapter in the TIP crate converts `CandidateList`.
-- `pime-tip` (planned): the COM/TSF shell. Thin: translates TSF events to `KeyEvent`, applies `Output` to the document.
-- `pime-settings`, `pime-setup`, installer, harness (planned): separate processes, never loaded in a host.
+- `pime-tip`: the COM/TSF shell. Thin: translates TSF events to `KeyEvent`, applies `Output` to the document.
+- `pime-settings`, `pime-setup`, the installer (`installer/`): separate processes, never loaded in a host. The test harness is still planned.
 - `pime-dict` (phase 2, optional): dictionary and autocomplete. v1 must not depend on it.
 
 ## Data flow
@@ -86,3 +86,9 @@ The user file is `%APPDATA%\PersianPhoneticIme\config.toml`. A reload builds a n
 | Targets | x64 and Win32 on Windows 10 22H2 and 11 | ARM64 (undecided) |
 
 PLAN.md sections 2.3 and 7 are authoritative on scope.
+
+## Known drift (code versus PLAN.md; recorded, not decided)
+
+- PLAN 3.4 item 2 (one-time toast on a new config error) is not implemented. The language-bar badge, settings error page, `config-errors.txt` and `--check` exist.
+- PLAN 2.3 says typing on "commits the highlighted choice and continues". In the code, moving the highlight fixes that token's choice as an override in the live preedit, and typing on continues the same composition (nothing is committed until Space/Enter/etc.; golden session.json notes this). The user decides which wording wins.
+- Not yet in PLAN: `[options] candidate_size` (percent, see `docs/config-schema.md`) is passed to the candidate window as `CandidateView.size_percent`.

@@ -12,6 +12,7 @@ crate-type = ["cdylib", "rlib"] # rlib so `cargo test` can exercise non-COM logi
 pime-core = { path = "../pime-core" }
 pime-ids = { path = "../pime-ids" }
 pime-candidate-ui = { path = "../pime-candidate-ui" }
+pime-dict = { path = "../pime-dict" }
 windows-core = "0.62.2"
 
 [dev-dependencies]

@@ -47,6 +47,13 @@ fn run() -> i32 {
             }
             code
         }
+        Command::ClearHistory => {
+            let code = cli::run_clear_history(&paths, &mut out, &mut err);
+            if code == exit::OK {
+                notify_reload(&mut err);
+            }
+            code
+        }
         Command::Open => open(&paths, &mut err),
         Command::Ui | Command::ShowErrors => window(&paths, cmd == Command::ShowErrors),
         Command::Help | Command::PrintDefault => unreachable!(),

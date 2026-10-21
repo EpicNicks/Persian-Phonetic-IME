@@ -3,8 +3,9 @@
 
 use pime_core::keys::{self, vk_for_char};
 use pime_core::{
-    fallback_of, format_issues, load_config, load_config_with_base, Dictionary, Fallback, KeyEvent,
-    LoadedConfig, OptionValue, Output, Session,
+    fallback_of, format_issues, load_config, load_config_with_base, Completer, ContextPolicy,
+    Dictionary, Fallback, KeyEvent, LearnEvent, LearnKind, ListCompleter, LoadedConfig,
+    OptionValue, Output, Session,
 };
 use serde_json::Value;
 use std::path::PathBuf;
@@ -57,10 +58,36 @@ fn key_event(name: &str) -> Result<KeyEvent, String> {
         "Down" => Some(KeyEvent::plain(keys::VK_DOWN)),
         "Left" => Some(KeyEvent::plain(keys::VK_LEFT)),
         "Right" => Some(KeyEvent::plain(keys::VK_RIGHT)),
+        "ShiftTab" => Some(KeyEvent::shifted(keys::VK_TAB)),
+        "Delete" => Some(KeyEvent::plain(keys::VK_DELETE)),
+        "Home" => Some(KeyEvent::plain(keys::VK_HOME)),
+        "End" => Some(KeyEvent::plain(keys::VK_END)),
+        "CapsLock" => Some(KeyEvent::plain(keys::VK_CAPITAL)),
         _ => None,
     };
     if let Some(k) = named {
         return Ok(k);
+    }
+    // "Ctrl+x", "Alt+x", "Ctrl+Alt+x": a chord over any key name above or a letter.
+    if let Some((mods, base)) = name.rsplit_once('+').filter(|(_, b)| !b.is_empty()) {
+        let mut k = key_event(base)?;
+        for m in mods.split('+') {
+            match m {
+                "Ctrl" => k.ctrl = true,
+                "Alt" => k.alt = true,
+                _ => return Err(format!("unknown modifier in {name:?}")),
+            }
+        }
+        return Ok(k);
+    }
+    // "Numpad5": a numpad digit.
+    if let Some(d) = name
+        .strip_prefix("Numpad")
+        .and_then(|d| d.parse::<u32>().ok())
+    {
+        if d <= 9 {
+            return Ok(KeyEvent::plain(keys::VK_NUMPAD0 + d));
+        }
     }
     let mut chars = name.chars();
     match (chars.next(), chars.next()) {
@@ -127,22 +154,139 @@ fn run_typing(case: &Value) -> Result<(), String> {
     }
 }
 
+/// `"completer": {"words": [[text, score], ...]}` -> a `ListCompleter`.
+fn completer_for(v: &Value) -> Result<Arc<dyn Completer>, String> {
+    let words = v["words"].as_array().ok_or("completer.words missing")?;
+    let mut list = Vec::new();
+    for w in words {
+        match (w[0].as_str(), w[1].as_f64()) {
+            (Some(t), Some(score)) => list.push((t.to_string(), score as f32)),
+            _ => return Err(format!("bad completer word {w}")),
+        }
+    }
+    Ok(Arc::new(ListCompleter::new(list)))
+}
+
+fn learn_kind(name: &str) -> Result<LearnKind, String> {
+    Ok(match name {
+        "accepted" => LearnKind::Accepted,
+        "skipped" => LearnKind::Skipped,
+        "ignored" => LearnKind::Ignored,
+        "dismissed" => LearnKind::Dismissed,
+        other => return Err(format!("unknown learn kind {other:?}")),
+    })
+}
+
+/// One scripted step: a key, or the runner-only events `"Click<row>"`
+/// (`select_candidate(row)`, 0-based), `"FocusLost"` and `"Terminated"`.
+fn step(s: &mut Session, name: &str) -> Result<Output, String> {
+    if let Some(row) = name.strip_prefix("Click").and_then(|r| r.parse().ok()) {
+        return Ok(s.select_candidate(row));
+    }
+    match name {
+        "FocusLost" => Ok(s.on_focus_lost()),
+        "Terminated" => {
+            s.on_composition_terminated();
+            Ok(s.snapshot())
+        }
+        _ => {
+            let k = key_event(name)?;
+            let before = s.snapshot();
+            let predicted = s.would_eat(&k);
+            if s.snapshot() != before {
+                return Err(format!("would_eat({name}) changed the session"));
+            }
+            let out = s.on_key(&k);
+            if out.eaten != predicted {
+                return Err(format!("would_eat({name}) disagrees with on_key"));
+            }
+            Ok(out)
+        }
+    }
+}
+
 fn run_session(case: &Value) -> Result<(), String> {
     let mut s = session_for(&case["config"])?;
+    if let Some(c) = case.get("completer") {
+        s.set_completer(Some(completer_for(c)?));
+    }
+    if let Some(p) = case.get("policy") {
+        s.set_context_policy(ContextPolicy {
+            completions: p["completions"].as_bool().unwrap_or(true),
+            learning: p["learning"].as_bool().unwrap_or(true),
+        });
+    }
     let keys = case["keys"].as_array().ok_or("missing keys")?;
     let mut committed = String::new();
+    let mut learn = Vec::new();
     let mut last = Output::default();
     for k in keys {
         let name = k.as_str().ok_or("key is not a string")?;
-        last = s.on_key(&key_event(name)?);
+        last = step(&mut s, name)?;
         committed.push_str(&last.commit);
+        learn.extend(last.learn.iter().cloned());
     }
     let mut errs = Vec::new();
+    if let Some(want) = case.get("completions_after_last") {
+        let want = if want.is_null() {
+            None
+        } else {
+            Some(string_list(want).ok_or("bad completions_after_last")?)
+        };
+        let got = last.completions.as_ref().map(|c| c.items.clone());
+        if got != want {
+            errs.push(format!(
+                "completions_after_last: expected {want:?}, got {got:?}"
+            ));
+        }
+    }
+    if let Some(want) = case.get("completion_highlight_after_last") {
+        let want = want.as_u64().map(|h| h as usize);
+        let got = last.completions.as_ref().and_then(|c| c.highlighted);
+        if got != want {
+            errs.push(format!(
+                "completion_highlight_after_last: expected {want:?}, got {got:?}"
+            ));
+        }
+    }
+    if let Some(want) = case.get("candidates_after_last") {
+        let want = if want.is_null() {
+            None
+        } else {
+            Some(string_list(want).ok_or("bad candidates_after_last")?)
+        };
+        let got = last.candidates.as_ref().map(|c| c.items.clone());
+        if got != want {
+            errs.push(format!(
+                "candidates_after_last: expected {want:?}, got {got:?}"
+            ));
+        }
+    }
+    if let Some(want) = case.get("learn") {
+        let mut want_events = Vec::new();
+        for e in want.as_array().ok_or("learn must be a list")? {
+            let (Some(kind), Some(word)) = (e[0].as_str(), e[1].as_str()) else {
+                return Err(format!("bad learn entry {e}"));
+            };
+            want_events.push(LearnEvent {
+                word: word.to_string(),
+                kind: learn_kind(kind)?,
+            });
+        }
+        if want_events != learn {
+            errs.push(format!("learn: expected {want_events:?}, got {learn:?}"));
+        }
+    }
     let want_commit = case["committed"].as_str().ok_or("missing committed")?;
     if want_commit != committed {
         errs.push(format!(
             "committed: expected {want_commit:?}, got {committed:?}"
         ));
+    }
+    if let Some(want) = case.get("last_eaten").and_then(Value::as_bool) {
+        if want != last.eaten {
+            errs.push(format!("last_eaten: expected {want}, got {}", last.eaten));
+        }
     }
     if let Some(want) = case.get("preedit").and_then(Value::as_str) {
         if want != last.preedit {
@@ -253,6 +397,8 @@ fn golden_cases() {
                 Some("typing") => run_typing(case),
                 Some("session") => run_session(case),
                 Some("config_error") => run_config_error(case),
+                // Dictionary cases (data/golden/dict.json) run in pime-dict's tests.
+                Some("complete" | "build") => continue,
                 other => Err(format!("unknown case type {other:?}")),
             };
             ran += 1;

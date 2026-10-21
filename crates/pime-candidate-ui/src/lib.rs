@@ -5,11 +5,13 @@
 
 pub mod geometry;
 pub mod layout;
+mod objects;
 pub mod placement;
 pub mod theme;
 mod view;
 
 pub use geometry::{Point, Rect, Size};
+pub use objects::live_com_objects;
 pub use view::CandidateView;
 
 #[cfg(windows)]

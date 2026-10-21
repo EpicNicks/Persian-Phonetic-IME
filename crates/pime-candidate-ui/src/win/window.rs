@@ -42,8 +42,8 @@ use crate::placement::{place, PlacementInput};
 use crate::theme::{Palette, Theme};
 use crate::view::CandidateView;
 
-/// Mouse interaction reported through the callback. Indices are 0-based into
-/// `CandidateView::items`.
+/// Mouse interaction reported through the callback. Indices are 0-based combined rows:
+/// alternates (`CandidateView::items`) first, then completions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CandidateEvent {
     /// The pointer moved onto a different row. The popup only tints that row; the
@@ -212,13 +212,16 @@ impl CandidateWindow {
         let old_highlight;
         {
             let mut st = self.inner.state.borrow_mut();
-            old_highlight = st.view.highlight();
-            let was_empty = st.view.items.is_empty();
+            old_highlight = st.view.selected_row();
+            let was_empty = st.view.visible_len() == 0;
             st.view = view.clone();
-            st.view.highlighted = view.highlight();
+            // Normalise (clamp) the selection once, so later comparisons see stored values.
+            if let Some(r) = view.selected_row() {
+                st.view.select_row(Some(r));
+            }
             st.hot = None;
             self.inner.relayout(&mut st);
-            if view.items.is_empty() && !was_empty {
+            if view.visible_len() == 0 && !was_empty {
                 drop(st);
                 self.hide();
                 return;
@@ -227,29 +230,37 @@ impl CandidateWindow {
         if self.is_visible() {
             self.inner.reposition();
             self.inner.repaint_now();
-            let st = self.inner.state.borrow();
-            if st.view.highlight() != old_highlight {
-                uia::raise_highlight(&self.inner.shared, st.view.highlight());
+            let sel = self.inner.state.borrow().view.selected_row();
+            if let Some(i) = sel.filter(|_| sel != old_highlight) {
+                uia::raise_highlight(&self.inner.shared, i);
             }
         }
     }
 
-    /// Move only the highlight (e.g. arrow keys). Cheaper than `update`.
+    /// Move only the highlight (e.g. arrow keys) to combined row `index`. Cheaper than
+    /// `update`.
     pub fn set_highlight(&self, index: usize) {
-        {
+        self.set_selected_row(Some(index));
+    }
+
+    /// Move the selection to combined row `row` (clamped); `None` clears the completion
+    /// highlight (see `CandidateView::select_row`). Cheaper than `update`.
+    pub fn set_selected_row(&self, row: Option<usize>) {
+        let sel = {
             let mut st = self.inner.state.borrow_mut();
-            let idx = index.min(st.view.visible_len().saturating_sub(1));
-            if st.view.highlighted == idx {
+            let before = (st.view.highlighted, st.view.completion_highlight);
+            st.view.select_row(row);
+            if (st.view.highlighted, st.view.completion_highlight) == before {
                 return;
             }
-            st.view.highlighted = idx;
-            self.inner.shared_lock().highlighted = idx;
-        }
+            let sel = st.view.selected_row();
+            self.inner.shared_lock().highlighted = sel;
+            sel
+        };
         self.inner.repaint_now();
-        uia::raise_highlight(
-            &self.inner.shared,
-            self.inner.state.borrow().view.highlight(),
-        );
+        if let Some(i) = sel {
+            uia::raise_highlight(&self.inner.shared, i);
+        }
     }
 
     /// Show the popup below `anchor` (caret / composition rectangle, physical screen
@@ -261,7 +272,7 @@ impl CandidateWindow {
     /// Like `show`, choosing the preferred side; the popup still flips to the other side
     /// when the preferred one has no room on the monitor's work area.
     pub fn show_at(&self, anchor: Rect, prefer_above: bool) {
-        if self.inner.state.borrow().view.items.is_empty() {
+        if self.inner.state.borrow().view.visible_len() == 0 {
             self.hide();
             return;
         }
@@ -280,8 +291,10 @@ impl CandidateWindow {
         }
         self.inner.repaint_now();
         if first {
-            let idx = self.inner.state.borrow().view.highlight();
-            uia::raise_highlight(&self.inner.shared, idx);
+            let sel = self.inner.state.borrow().view.selected_row();
+            if let Some(i) = sel {
+                uia::raise_highlight(&self.inner.shared, i);
+            }
         }
     }
 
@@ -292,9 +305,16 @@ impl CandidateWindow {
         }
     }
 
-    /// Currently highlighted row (clamped), as last set by `update`/`set_highlight`.
+    /// Currently highlighted row (clamped; 0 when nothing is selected), as last set by
+    /// `update`/`set_highlight`.
     pub fn highlight(&self) -> usize {
         self.inner.state.borrow().view.highlight()
+    }
+
+    /// Selected combined row, or `None` when nothing is highlighted (completions only, none
+    /// chosen yet).
+    pub fn selected_row(&self) -> Option<usize> {
+        self.inner.state.borrow().view.selected_row()
     }
 
     /// Re-read the light/dark/high-contrast setting. Done automatically on
@@ -334,15 +354,17 @@ impl Inner {
             show_numbers: st.view.show_numbers,
             has_labels: st.view.has_labels(),
             footer: st.view.show_footer,
+            divider_after: st.view.divider_after(),
             glyph_width: gw,
             label_width: lw,
             scale,
         });
         let mut s = self.shared_lock();
         let n = st.view.visible_len();
-        s.items = st.view.items[..n].to_vec();
+        s.items = st.view.rows().map(str::to_owned).collect();
         s.labels = (0..n).map(|i| st.view.label(i).to_owned()).collect();
-        s.highlighted = st.view.highlight();
+        s.first_completion = st.view.alt_len();
+        s.highlighted = st.view.selected_row();
         s.rows = st.layout.rows.iter().map(|r| r.row).collect();
     }
 
@@ -431,7 +453,7 @@ impl Inner {
             BeginPaint(hwnd, &mut ps);
             if let Ok(mut guard) = self.state.try_borrow_mut() {
                 let st = &mut *guard;
-                let hi = st.view.highlight();
+                let hi = st.view.selected_row();
                 let res = st
                     .renderer
                     .paint(hwnd, &st.layout, &st.view, hi, st.hot, &st.palette);

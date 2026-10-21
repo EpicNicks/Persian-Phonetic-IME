@@ -1,14 +1,14 @@
 # Persian Phonetic IME
 
-A general-purpose phonetic Persian input method for Windows. Type Latin letters the way you would say the word (`salam`) and get Persian script (سلام). It is a standalone native text service (TSF), written in Rust, and has no dependency on any other project or service.
+A general-purpose phonetic Persian input method for Windows. Type Latin letters and get Persian script. The mapping is letter by letter and has no dictionary, so you spell the letters that appear in the Persian word: `slam` gives سلام, `khub` gives خوب, `shir` gives شیر. Vowels are typed only when they appear in the Persian spelling; every `a` becomes ا. It is a standalone native text service (TSF), written in Rust, and has no dependency on any other project or service.
 
 ## Status
 
-Planning, wave 1 in progress. There is nothing to install yet. The data files, the `pime-core` engine, the candidate-window crate and a disposable TSF spike are being written in parallel. See `PLAN.md` section 9 for the live status table.
+Pre-release. The engine, candidate window, settings app, TSF text service (`pime-tip`) and a placeholder MSI all build and pass their tests, but the text service and installer have **not yet been run in a VM or Windows Sandbox**, so treat them as unverified. Nothing is signed. See `PLAN.md` section 9 for the live status table.
 
 ## Planned behaviour
 
-- **Type Latin, get Persian.** `salam`-style phonetic input; digraphs such as `sh`, `kh`, `ch`, `gh` are handled as you type.
+- **Type Latin, get Persian.** Letter-by-letter phonetic input (`a` is ا, `o` is و, `y` is ی); digraphs such as `sh`, `kh`, `ch`, `gh` are handled as you type.
 - **Whole-word underlined composition.** The entire current word is shown underlined (like kana input in Google Japanese IME) and is committed with Space, Enter, punctuation, or when you click elsewhere. Backspace edits the Latin letters; Escape cancels.
 - **Candidate list for ambiguous letters.** `s` can be س ص ث, `z` can be ز ذ ض ظ, `gh` can be غ ق, and so on. Press Tab or Down to open a numbered list, press `1`-`9` to pick.
 - **Persian digits and punctuation** by default (`۱۲۳`, `،` `؛` `؟`), Shift+Space for ZWNJ (می‌خواهم).
@@ -23,16 +23,21 @@ Dictionary-backed autocomplete is an optional later phase and is not part of v1.
 ```
 PLAN.md            decisions, behaviour spec, workstreams, status
 CLAUDE.md          orientation for Claude sessions
-docs/              contracts.md, DESIGN.md, (config-schema.md, spike.md by other workstreams)
+docs/              contracts.md, DESIGN.md, config-schema.md, spike.md
 crates/
   pime-core/         engine, config, Session (no Windows dependencies)
   pime-candidate-ui/ candidate window
+  pime-tip/          the TSF text service DLL (COM shell around pime-core)
+  pime-settings/     settings app and CLI (--check, --reset, --print-default, ...)
+  pime-setup/        registration helper used by the installer
+  pime-ids/          frozen GUIDs shared by the above
 data/              presets, punctuation tables, golden test cases
+installer/         WiX v5 MSI project and build script
 spike/             disposable TSF spike (not part of the workspace)
 .github/workflows/ CI (Windows)
 ```
 
-More crates (`pime-tip`, `pime-settings`, `pime-setup`, `xtask`) and `installer/`, `harness/` are planned; see `PLAN.md` section 5.
+Still planned (PLAN.md section 5): `xtask`, `harness/`, and the optional `pime-dict` (phase 2).
 
 ## Build and test
 
@@ -45,6 +50,10 @@ cargo test --workspace
 ```
 
 When several people or agents build in the same checkout, give each its own target directory to avoid lock contention, for example `set CARGO_TARGET_DIR=target-mydir` (any `target*/` directory is git-ignored).
+
+## Install
+
+Building is safe anywhere. Installing is not: the MSI (`installer/build.ps1`, see `installer/README.md`) and `pime-setup /register` register a text service that loads into every application. Do this only in a VM or Windows Sandbox, never on a development machine. The `pime-tip` sandbox checklist is in `crates/pime-tip/README.md`.
 
 ## Safety warning
 

@@ -135,7 +135,8 @@ fn behaviour_options() {
         Autocomplete {
             enabled: true,
             predict_min_chars: 3,
-            learning: false
+            learning: false,
+            max_completions: 5,
         }
     );
     let c = &cfg.config;
@@ -456,10 +457,75 @@ fn option_specs_are_the_validators_source() {
         }
     }
     let ac: Vec<&str> = autocomplete_specs().iter().map(|s| s.name).collect();
-    assert_eq!(ac, ["enabled", "predict_min_chars", "learning"]);
+    assert_eq!(
+        ac,
+        [
+            "enabled",
+            "predict_min_chars",
+            "learning",
+            "max_completions"
+        ]
+    );
     let min = autocomplete_specs()[1];
     assert_eq!(min.kind, OptionKind::Integer { min: 1 });
     assert_eq!(min.default_value(), Some(OptionValue::Integer(2)));
+    let max = autocomplete_specs()[3];
+    assert_eq!(max.kind, OptionKind::Integer { min: 1 });
+    assert_eq!(max.default_value(), Some(OptionValue::Integer(5)));
+}
+
+#[test]
+fn max_completions_option() {
+    let d = ResolvedConfig::default();
+    assert_eq!(d.options().autocomplete.max_completions, 5);
+    assert_eq!(
+        d.option_value("autocomplete.max_completions"),
+        Some(OptionValue::Integer(5))
+    );
+    let max = |v: &str| {
+        load(&format!("[autocomplete]\nmax_completions = {v}\n"))
+            .config
+            .options()
+            .autocomplete
+            .max_completions
+    };
+    assert_eq!(max("1"), 1);
+    assert_eq!(max("7"), 7);
+    assert_eq!(max("9"), 9);
+    assert_eq!(max("10"), 9, "clamped silently");
+    assert_eq!(max("1000000"), 9);
+    assert!(load("[autocomplete]\nmax_completions = 40\n")
+        .issues
+        .is_empty());
+    for bad in ["0", "-3"] {
+        let loaded = load(&format!(
+            "[autocomplete]\nmax_completions = {bad}\nlearning = false\n"
+        ));
+        assert_eq!(loaded.issues.len(), 1, "{}", text_of(&loaded.issues));
+        let i = &loaded.issues[0];
+        assert_eq!(i.kind, IssueKind::InvalidValue);
+        assert_eq!(
+            i.message,
+            format!("max_completions must be at least 1, not {bad}.")
+        );
+        assert_eq!(fallback_of(&loaded.issues), Fallback::Entry);
+        let ac = loaded.config.options().autocomplete;
+        assert_eq!(ac.max_completions, 5, "default kept");
+        assert!(!ac.learning, "the rest still applies");
+    }
+    let i = only_issue("[autocomplete]\nmax_completions = \"five\"\n");
+    assert_eq!(
+        i.message,
+        "max_completions must be a whole number (for example 5), not text."
+    );
+    let i = only_issue("[autocomplete]\nenabled = \"yes\"\n");
+    assert_eq!(
+        i.message,
+        "enabled must be true or false (for example true), not text."
+    );
+    let i = only_issue("[autocomplete]\nmax_completion = 3\n");
+    assert_eq!(i.kind, IssueKind::UnknownKey);
+    assert_eq!(i.hint, "Did you mean \"max_completions\"?");
 }
 
 #[test]
@@ -563,4 +629,12 @@ toggle_hotkey = \"f9\"
 ",
     );
     assert!(i.hint.contains("alt+`"), "{i:?}");
+}
+
+#[test]
+fn c_as_s_follows_the_final_s() {
+    let cfg = load("[options]\nc = \"s\"\n[map.singles]\ns = [\"ث\", \"س\"]\n").config;
+    assert_eq!(cfg.candidates("c").unwrap(), list(&["ث", "س"]).as_slice());
+    let cfg = load("[options]\nc = \"s\"\n[map.singles]\ns = [\"ث\"]\nc = [\"ک\"]\n").config;
+    assert_eq!(cfg.candidates("c").unwrap(), ["ک"]);
 }

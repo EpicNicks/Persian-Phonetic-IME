@@ -19,12 +19,17 @@
 
 #![warn(missing_docs)]
 
+pub mod complete;
 pub mod config;
 pub mod keys;
 mod labels;
 pub mod render;
 mod session;
 
+pub use complete::{
+    completable, complete_with_zwnj_rule, match_key, CompleteCtx, Completer, Completion,
+    CompletionList, ContextPolicy, LearnEvent, LearnKind, ListCompleter, ZWNJ,
+};
 pub use config::{
     autocomplete_specs, builtin_preset_names, decode_config_bytes, fallback_of, format_issues,
     format_issues_for, load_config, load_config_bytes, load_config_with_base, option_specs,

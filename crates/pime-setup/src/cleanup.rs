@@ -35,7 +35,8 @@ pub fn stale_version_dirs<'a>(names: &[&'a str], keep: &str) -> Vec<&'a str> {
         .collect()
 }
 
-/// Files the installer ships (and nothing else): versioned TIP DLLs (+pdb), helper and settings.
+/// Files the installer ships (and nothing else): versioned TIP DLLs (+pdb), helper, settings and the shared dictionary + notices.
+/// Per-user data (history.bin, config) never lives here and is never matched.
 pub fn is_our_file(name: &str) -> bool {
     let n = name.to_ascii_lowercase();
     let tip = n.starts_with("persianphoneticime.")
@@ -45,7 +46,12 @@ pub fn is_our_file(name: &str) -> bool {
             || n.ends_with(".x86.pdb"));
     let exe = matches!(
         n.as_str(),
-        "pime-setup.x64.exe" | "pime-setup.x86.exe" | "pime-settings.exe" | "placeholder.txt"
+        "pime-setup.x64.exe"
+            | "pime-setup.x86.exe"
+            | "pime-settings.exe"
+            | "placeholder.txt"
+            | "dict.bin"
+            | "third-party-notices.txt"
     );
     tip || exe
 }
@@ -109,11 +115,14 @@ mod tests {
             "pime-setup.x86.exe",
             "pime-settings.exe",
             "PLACEHOLDER.txt",
+            "dict.bin",
+            "THIRD-PARTY-NOTICES.txt",
         ] {
             assert!(is_our_file(ok), "{ok}");
         }
         for bad in [
             "config.toml",
+            "history.bin",
             "notes.txt",
             "PersianPhoneticIme.dll",
             "evil.x64.dll",

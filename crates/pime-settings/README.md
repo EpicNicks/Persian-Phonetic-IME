@@ -24,7 +24,7 @@ folders through `PIME_CONFIG_DIR` and never touch `%APPDATA%`.
 |---|---|
 | user config | `%APPDATA%\PersianPhoneticIme\config.toml` |
 | error report | `%LOCALAPPDATA%\PersianPhoneticIme\config-errors.txt` |
-| history (phase 2) | `%LOCALAPPDATA%\PersianPhoneticIme\` |
+| history (`history.bin`, cleared by `--clear-history`) | `%LOCALAPPDATA%\PersianPhoneticIme\` |
 
 **Decoding**: both sides use `pime_core::decode_config_bytes` / `load_config_bytes`.
 They accept UTF-8 with or without a BOM and UTF-16 LE/BE with a BOM. Anything else is
@@ -36,16 +36,18 @@ none. Header line, `File: <path>`, blank line, then `pime_core::format_issues`.
 
 **Reload signal** (`src/reload.rs`):
 
-- Named manual-reset event `Local\PersianPhoneticIme.ConfigChanged`, default security,
-  created by whoever opens it first (`CreateEventW(NULL, TRUE, FALSE, name)`).
+- Named manual-reset event `Local\PersianPhoneticIme.ConfigChanged`, created by whoever opens it
+  first with an explicit descriptor (Everyone and AppContainer packages get SYNCHRONIZE and
+  EVENT_MODIFY_STATE, low-integrity label), so an elevated creator does not lock out the
+  settings app. If that fails it falls back to default security.
 - The settings app, after every save or reset: `SetEvent`, hold 250 ms (`PULSE_MS`),
   `ResetEvent`. It does not use `PulseEvent`.
 - The TIP waits with a thread-pool wait, never on the key path. On wake it re-reads the
   file off the UI thread, swaps its `Arc<ResolvedConfig>` and rewrites the error file.
   It treats the wake as a hint (it compares the file's last-write time and size), and
   re-arms no sooner than 1000 ms (`MIN_REARM_MS`) later.
-- AppContainer (immersive) processes cannot see `Local\` objects of the desktop
-  session, and hand edits do not signal. So the TIP must also re-check the file on
+- AppContainer (immersive) hosts never create the event; they only try to open the session's
+  `Session\<id>\` copy. Hand edits do not signal. So the TIP also re-checks the file on
   focus change.
 
 **Exit codes** (`report::exit`): 0 no problems (warnings allowed), 1 some entries

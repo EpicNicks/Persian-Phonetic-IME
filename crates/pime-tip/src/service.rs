@@ -9,7 +9,8 @@ use std::cell::{Cell, RefCell};
 use std::sync::Arc;
 
 use pime_core::config::ToggleHotkey;
-use pime_core::{Dictionary, Session};
+use pime_core::{ContextPolicy, Dictionary, LearnEvent, ResolvedConfig, Session};
+use pime_dict::Runtime;
 use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
 use windows::Win32::System::Variant::{VARIANT, VT_EMPTY, VT_I4};
 use windows::Win32::UI::TextServices::{
@@ -28,10 +29,11 @@ use windows::Win32::UI::TextServices::{
 use windows_core::{implement, ComObject, IUnknown, IUnknownImpl, Interface, Ref, GUID};
 
 use crate::anchor::Anchor;
-use crate::candidates::register_ui_element;
+use crate::autocomplete;
+use crate::candidates::{PopupPresenter, PresenterOptions};
 use crate::composition::{
-    apply_settings, build_plan, latin_output, presenter_call, side_for, EditPlan, Planned,
-    PresenterCall, Shown,
+    build_plan, eat_when_sync_refused, latin_output, presenter_call, session_output, side_for,
+    test_verdict, wants_key, EditPlan, Planned, PopupContent, PresenterCall, Shown,
 };
 use crate::config::ConfigHandle;
 use crate::display;
@@ -39,7 +41,7 @@ use crate::edit::{self, Job, Mode};
 use crate::exports::{guard, guard_unit, poisoned, ObjToken};
 use crate::keysink::{Decoded, KeySet};
 use crate::langbar::LangBar;
-use crate::presenter::{CandidateList, CandidatePresenter, PreferredSide, ScreenRect};
+use crate::presenter::{CandidatePresenter, PreferredSide, ScreenRect};
 use crate::registry::{self, GUID_DISPLAY_ATTR_INPUT, GUID_DISPLAY_ATTR_PENDING};
 use crate::settings::Settings;
 
@@ -71,6 +73,9 @@ struct State {
     side: PreferredSide,
     planned: Planned,
     composition: Option<ITfComposition>,
+    /// Compositions left open in another context when typing moved on (focus changed before
+    /// their commit ran). Kept so their queued Finish still finds them; bounded.
+    stale: Vec<ITfComposition>,
     /// Context of the last key we handled: where a composition whose session has not run yet
     /// lives.
     last_ctx: Option<ITfContext>,
@@ -83,6 +88,11 @@ struct State {
     size: u32,
     /// The Persian/Latin hotkey currently preserved with TSF.
     hotkey: Option<TF_PRESERVEDKEY>,
+    /// Our reference on the process autocomplete runtime (`autocomplete::acquire`), held
+    /// while the config has `[autocomplete] enabled`.
+    ac: Option<Arc<Runtime>>,
+    /// The focused document's top context, whose input scope sets the session's policy.
+    policy_ctx: Option<ITfContext>,
 }
 
 impl Default for State {
@@ -99,6 +109,7 @@ impl Default for State {
             side: PreferredSide::Below,
             planned: Planned::default(),
             composition: None,
+            stale: Vec::new(),
             last_ctx: None,
             popup: None,
             eaten_down: KeySet::default(),
@@ -106,6 +117,8 @@ impl Default for State {
             labels: false,
             size: 0,
             hotkey: None,
+            ac: None,
+            policy_ctx: None,
         }
     }
 }
@@ -126,7 +139,8 @@ pub struct TextService {
     st: RefCell<State>,
     config: RefCell<Option<ConfigHandle>>,
     langbar: RefCell<Option<LangBar>>,
-    presenter: RefCell<Option<Box<dyn CandidatePresenter>>>,
+    /// Concrete type (not the pinned trait): the trait cannot show two sections.
+    presenter: RefCell<Option<PopupPresenter>>,
     client_id: Cell<u32>,
     input_atom: Cell<u32>,
     pending_atom: Cell<u32>,
@@ -178,19 +192,77 @@ impl TextService_Impl {
         self.st.borrow().composition.clone()
     }
 
-    pub fn set_composition(&self, c: Option<ITfComposition>) {
-        self.st.borrow_mut().composition = c;
+    /// Our composition living in `ctx` (current or stale), if any. An edit session may only
+    /// touch compositions of its own context: its edit cookie is meaningless elsewhere.
+    pub fn composition_in(&self, ctx: &ITfContext) -> Option<ITfComposition> {
+        let all: Vec<ITfComposition> = {
+            let st = self.st.borrow();
+            st.composition
+                .iter()
+                .chain(st.stale.iter())
+                .cloned()
+                .collect()
+        };
+        all.into_iter().find(|c| composition_context_is(c, ctx))
+    }
+
+    /// Makes `c` the current composition. A previous current one in another context becomes
+    /// stale and is returned so the caller can queue its end in its own context.
+    pub fn adopt_composition(&self, c: &ITfComposition) -> Option<ITfComposition> {
+        const MAX_STALE: usize = 4;
+        let mut st = self.st.borrow_mut();
+        st.stale.retain(|s| !same_object(s, c));
+        let old = st.composition.replace(c.clone())?;
+        if same_object(&old, c) {
+            return None;
+        }
+        if st.stale.len() >= MAX_STALE {
+            st.stale.remove(0); // only forgotten: the host keeps its text
+        }
+        st.stale.push(old.clone());
+        Some(old)
+    }
+
+    /// Stops tracking `c` (it is being ended).
+    pub fn release_composition(&self, c: &ITfComposition) {
+        let mut st = self.st.borrow_mut();
+        st.stale.retain(|s| !same_object(s, c));
+        if st.composition.as_ref().is_some_and(|o| same_object(o, c)) {
+            st.composition = None;
+        }
+    }
+
+    /// Removes `c` from the stale list; true if it was there.
+    pub fn take_stale(&self, c: &ITfComposition) -> bool {
+        let mut st = self.st.borrow_mut();
+        let before = st.stale.len();
+        st.stale.retain(|s| !same_object(s, c));
+        st.stale.len() != before
+    }
+
+    /// The host refused a composition: forget the word (its text was inserted as plain text)
+    /// and drop plans queued against the old state.
+    pub fn abandon_session(&self) {
+        {
+            let mut st = self.st.borrow_mut();
+            if let Some(s) = st.session.as_mut() {
+                s.on_composition_terminated();
+            }
+            st.planned = Planned::default();
+        }
+        self.generation.set(self.generation.get().wrapping_add(1));
+        self.hide_candidates();
     }
 
     fn active(&self) -> bool {
         !poisoned() && self.st.borrow().key_sink_advised
     }
 
-    fn with_presenter(&self, f: impl FnOnce(&mut dyn CandidatePresenter)) {
+    fn with_presenter(&self, f: impl FnOnce(&mut PopupPresenter)) {
         // Busy = we are inside a presenter call already (re-entrant): skip rather than panic.
         if let Ok(mut g) = self.presenter.try_borrow_mut() {
             if let Some(p) = g.as_mut() {
-                f(p.as_mut());
+                f(p);
             }
         }
     }
@@ -213,7 +285,7 @@ impl TextService_Impl {
 
     pub fn show_candidates(
         &self,
-        list: &CandidateList,
+        list: &PopupContent,
         a: Anchor,
         side: PreferredSide,
         units: usize,
@@ -233,8 +305,8 @@ impl TextService_Impl {
             call
         };
         self.with_presenter(|p| match call {
-            PresenterCall::Show => p.show(list, a.rect, side),
-            PresenterCall::Highlight(i) => p.set_highlight(i),
+            PresenterCall::Show => show_popup(p, list, a.rect, side),
+            PresenterCall::Highlight(row) => p.set_selected_row(row),
         });
     }
 
@@ -255,7 +327,7 @@ impl TextService_Impl {
             }
         };
         if let Some((list, side)) = redo {
-            self.with_presenter(|p| p.show(&list, a.rect, side));
+            self.with_presenter(|p| show_popup(p, &list, a.rect, side));
         }
     }
 
@@ -265,21 +337,16 @@ impl TextService_Impl {
         if !self.active() || context_disabled(ctx) {
             return false;
         }
+        // True also for keys that commit and then pass through: OnKeyDown must run for them.
         let st = self.st.borrow();
         if !self.open.get() {
-            return latin_output(&d.ev, d.caps, &st.settings).eaten;
+            let out = latin_output(&d.ev, d.caps, &st.settings);
+            return wants_key(&build_plan(&out, &st.planned, st.side).0);
         }
         let Some(session) = st.session.as_ref() else {
             return false;
         };
-        if !session.would_eat(&d.ev) {
-            return false;
-        }
-        if st.settings.eat_printable {
-            return true;
-        }
-        let was = session.is_composing();
-        apply_settings(session.clone().on_key(&d.ev), &d.ev, was, &st.settings).eaten
+        test_verdict(session, &d.ev, &st.settings, &st.planned, st.side)
     }
 
     pub(crate) fn key_down(&self, ctx: &ITfContext, d: &Decoded) -> windows_core::Result<bool> {
@@ -287,25 +354,39 @@ impl TextService_Impl {
             return Ok(false);
         }
         let vk = d.ev.vk as usize;
-        let plan = {
+        let (plan, learn) = {
             let mut st = self.st.borrow_mut();
             let settings = st.settings;
-            let out = if !self.open.get() {
+            let mut out = if !self.open.get() {
                 latin_output(&d.ev, d.caps, &settings)
             } else {
                 let Some(s) = st.session.as_mut() else {
                     return Ok(false);
                 };
-                let was = s.is_composing();
-                let out = s.on_key(&d.ev);
-                apply_settings(out, &d.ev, was, &settings)
+                session_output(s, &d.ev, &settings)
             };
+            let learn = std::mem::take(&mut out.learn);
             let (plan, planned) = build_plan(&out, &st.planned, st.side);
             st.planned = planned;
             st.last_ctx = Some(ctx.clone());
             st.eaten_down.set(vk, plan.eaten);
-            plan
+            (plan, learn)
         };
+        let result = self.run_key_plan(ctx, d, plan);
+        // Only now, with the Output handed to the document: OnTestKeyDown never gets here.
+        if result.is_ok() {
+            self.record_learn(&learn);
+        }
+        result
+    }
+
+    fn run_key_plan(
+        &self,
+        ctx: &ITfContext,
+        d: &Decoded,
+        plan: EditPlan,
+    ) -> windows_core::Result<bool> {
+        let vk = d.ev.vk as usize;
         if !plan.needs_session() {
             return Ok(plan.eaten);
         }
@@ -321,15 +402,16 @@ impl TextService_Impl {
             Ok(hr) if hr != TF_E_SYNCHRONOUS => Ok(eaten),
             _ => {
                 // Sync refused (document locked): commit async and eat the key rather than let
-                // it land before our text.
-                self.st.borrow_mut().eaten_down.set(vk, true);
+                // it land before our text; chords (Ctrl+S, Alt+F) still go to the app.
+                let eat = eat_when_sync_refused(&d.ev);
                 let _queued = edit::request(
                     self.to_object(),
                     ctx,
                     Job::Apply(fallback),
                     Mode::AsyncDontCare,
                 )?;
-                Ok(true)
+                self.st.borrow_mut().eaten_down.set(vk, eat);
+                Ok(eat)
             }
         }
     }
@@ -361,28 +443,130 @@ impl TextService_Impl {
         mode: Mode,
         f: impl FnOnce(&mut Session) -> pime_core::Output,
     ) -> windows_core::Result<()> {
-        let plan: Option<EditPlan> = {
+        let (plan, learn): (Option<EditPlan>, Vec<LearnEvent>) = {
             let mut st = self.st.borrow_mut();
             let side = st.side;
             match st.session.as_mut() {
                 Some(s) => {
-                    let out = f(s);
+                    let mut out = f(s);
+                    let learn = std::mem::take(&mut out.learn);
                     let (plan, planned) = build_plan(&out, &st.planned, side);
                     st.planned = planned;
-                    Some(plan)
+                    (Some(plan), learn)
                 }
-                None => None,
+                None => (None, Vec::new()),
             }
         };
-        let Some(plan) = plan.filter(EditPlan::needs_session) else {
-            return Ok(());
+        let result = match plan.filter(EditPlan::needs_session) {
+            None => Ok(()),
+            Some(plan) => match self.composition_context() {
+                Some(ctx) => {
+                    edit::request(self.to_object(), &ctx, Job::Apply(plan), mode).map(|_| ())
+                }
+                None => {
+                    self.hide_candidates();
+                    Ok(())
+                }
+            },
         };
-        match self.composition_context() {
-            Some(ctx) => edit::request(self.to_object(), &ctx, Job::Apply(plan), mode).map(|_| ()),
-            None => {
-                self.hide_candidates();
-                Ok(())
+        if result.is_ok() {
+            self.record_learn(&learn);
+        }
+        result
+    }
+
+    /// Hands an episode's learn events to the autocomplete runtime (in memory; key path).
+    fn record_learn(&self, learn: &[LearnEvent]) {
+        if learn.is_empty() {
+            return;
+        }
+        let rt = self.st.borrow().ac.clone();
+        if let Some(rt) = rt {
+            autocomplete::record(&rt, learn);
+        }
+    }
+
+    // -- autocomplete --------------------------------------------------------------------
+
+    /// Takes or drops our runtime reference to match `cfg`, then gives the session the
+    /// matching completer. Activation and config reload only (never the key path).
+    fn sync_autocomplete(&self, cfg: &ResolvedConfig) {
+        let enabled = cfg.options().autocomplete.enabled;
+        let held = self.st.borrow().ac.is_some();
+        let mut acquired = false;
+        if enabled && !held {
+            if let Some(rt) = autocomplete::acquire() {
+                self.st.borrow_mut().ac = Some(rt);
+                acquired = true;
             }
+        }
+        let dropped = if !enabled && held {
+            self.st.borrow_mut().ac.take()
+        } else {
+            None
+        };
+        {
+            let mut st = self.st.borrow_mut();
+            let completer = st.ac.as_ref().map(|rt| rt.completer());
+            if let Some(s) = st.session.as_mut() {
+                s.set_completer(completer);
+            }
+        }
+        if let Some(rt) = dropped {
+            drop(rt);
+            autocomplete::release();
+        }
+        if acquired {
+            self.refresh_policy();
+        }
+    }
+
+    /// Closes the policy of the focused context until its input scope has been read (a read
+    /// edit session; only while autocomplete is on).
+    fn refresh_policy(&self) {
+        let (ctx, on) = {
+            let st = self.st.borrow();
+            (st.policy_ctx.clone(), st.ac.is_some())
+        };
+        self.apply_policy(autocomplete::CLOSED);
+        if let (Some(ctx), true) = (ctx, on) {
+            // A refused or failed read leaves the context closed: no completions, no learning.
+            let _ = edit::request(self.to_object(), &ctx, Job::ReadPolicy, Mode::AsyncDontCare);
+        }
+    }
+
+    fn apply_policy(&self, p: ContextPolicy) {
+        if let Some(s) = self.st.borrow_mut().session.as_mut() {
+            s.set_context_policy(p);
+        }
+    }
+
+    /// The input scope of `ctx` was read (inside a read edit session).
+    pub fn set_context_policy_for(&self, ctx: &ITfContext, p: ContextPolicy) {
+        let current = self.st.borrow().policy_ctx.clone();
+        if !current.is_some_and(|c| same_object(&c, ctx)) {
+            return; // focus moved on meanwhile
+        }
+        self.apply_policy(p);
+        if self.st.borrow().planned.composing() {
+            // Queued: we are inside an edit session of this context.
+            let _ = self.run_session_plan(Mode::Async, |s| s.snapshot());
+        }
+    }
+
+    /// Pushed/popped context: the focused document's top context may have changed.
+    fn refocus_policy(&self) {
+        let tm = self.st.borrow().thread_mgr.clone();
+        let top = tm.and_then(|tm| unsafe { tm.GetFocus().ok()?.GetTop().ok() });
+        let current = self.st.borrow().policy_ctx.clone();
+        let same = match (&current, &top) {
+            (Some(a), Some(b)) => same_object(a, b),
+            (None, None) => true,
+            _ => false,
+        };
+        if !same {
+            self.st.borrow_mut().policy_ctx = top;
+            self.refresh_policy();
         }
     }
 
@@ -408,6 +592,7 @@ impl TextService_Impl {
 
     /// Focus changes: pick up an edited config file (never on the key path).
     fn refresh_config(&self) -> windows_core::Result<()> {
+        autocomplete::note_status();
         let fresh = {
             let cfg = self.config.borrow();
             match cfg.as_ref() {
@@ -425,13 +610,14 @@ impl TextService_Impl {
             let mut st = self.st.borrow_mut();
             st.side = side_for(&cfg);
             if let Some(s) = st.session.as_mut() {
-                s.set_config(cfg);
+                s.set_config(cfg.clone());
             }
             let relabel = st.labels != labels || st.size != size;
             st.labels = labels;
             st.size = size;
             (st.thread_mgr.clone(), relabel)
         };
+        self.sync_autocomplete(&cfg);
         if let Some(tm) = tm.as_ref() {
             self.sync_hotkey(tm, hotkey);
         }
@@ -468,7 +654,10 @@ impl TextService_Impl {
         if let Some(old) = old {
             unadvise_context(&old);
         }
-        let Some(ctx) = doc.and_then(|d| unsafe { d.GetTop().ok() }) else {
+        let top = doc.and_then(|d| unsafe { d.GetTop().ok() });
+        self.st.borrow_mut().policy_ctx = top.clone();
+        self.refresh_policy();
+        let Some(ctx) = top else {
             return;
         };
         let Ok(src) = ctx.cast::<ITfSource>() else {
@@ -493,8 +682,12 @@ impl TextService_Impl {
             st.thread_mgr = Some(tm.clone());
             st.settings = Settings::read();
             st.side = side_for(&cfg);
-            st.session = Some(Session::new(cfg, Arc::new(Dictionary::empty())));
+            let mut session = Session::new(cfg.clone(), Arc::new(Dictionary::empty()));
+            // Opened by the input-scope read once a context has focus (advise_context).
+            session.set_context_policy(autocomplete::CLOSED);
+            st.session = Some(session);
         }
+        self.sync_autocomplete(&cfg);
         unsafe {
             let src = tm.cast::<ITfSource>()?;
             let sink: ITfThreadMgrEventSink = self.to_interface();
@@ -632,7 +825,12 @@ impl TextService_Impl {
     /// Creates the presenter (also published as ITfCandidateListUIElement for UI-less hosts:
     /// we register TIPCAP_UIELEMENTENABLED) and replaces any previous one.
     fn install_presenter(&self, tm: &ITfThreadMgr, labels: bool, size: u32) {
-        let mut presenter = register_ui_element(tm, labels, size);
+        let mut presenter = PopupPresenter::new(PresenterOptions {
+            candidate_labels: labels,
+            size_percent: size,
+            thread_mgr: Some(tm.clone()),
+            ..Default::default()
+        });
         let me = self.to_object();
         presenter.set_on_click(Box::new(move |i| guard_unit(|| me.on_candidate_click(i))));
         let old = self
@@ -668,10 +866,12 @@ impl TextService_Impl {
         if std::mem::take(&mut self.st.borrow_mut().reload_started) {
             crate::reload::stop();
         }
-        let (tm, tm_cookie, focus_cookie, openclose, keys, ctx_sinks, hotkey) = {
+        let (tm, tm_cookie, focus_cookie, openclose, keys, ctx_sinks, hotkey, ac) = {
             let mut st = self.st.borrow_mut();
             st.session = None;
+            st.policy_ctx = None;
             st.composition = None;
+            st.stale.clear();
             st.planned = Planned::default();
             st.popup = None;
             st.last_ctx = None;
@@ -683,8 +883,14 @@ impl TextService_Impl {
                 std::mem::take(&mut st.key_sink_advised),
                 st.ctx_sinks.take(),
                 st.hotkey.take(),
+                st.ac.take(),
             )
         };
+        if let Some(rt) = ac {
+            // The session (and its completer) is gone; the last release saves and shuts down.
+            drop(rt);
+            autocomplete::release();
+        }
         if let Some(cs) = ctx_sinks {
             unadvise_context(&cs);
         }
@@ -716,6 +922,17 @@ impl TextService_Impl {
         self.input_atom.set(0);
         self.pending_atom.set(0);
     }
+}
+
+/// Both sections in one popup (alternates, then completions below a divider).
+fn show_popup(p: &mut PopupPresenter, c: &PopupContent, anchor: ScreenRect, side: PreferredSide) {
+    p.show_full(
+        c.alternates.as_ref(),
+        c.completions.as_ref(),
+        &c.preedit,
+        anchor,
+        side,
+    );
 }
 
 fn unadvise_context(cs: &ContextSinks) {
@@ -761,11 +978,17 @@ fn variant_is_empty(v: &VARIANT) -> bool {
     unsafe { v.Anonymous.Anonymous.vt == VT_EMPTY }
 }
 
-fn same_object<A: Interface, B: Interface>(a: &A, b: &B) -> bool {
+/// COM identity (IUnknown pointers), the only valid way to compare two interface pointers.
+pub(crate) fn same_object<A: Interface, B: Interface>(a: &A, b: &B) -> bool {
     match (a.cast::<IUnknown>(), b.cast::<IUnknown>()) {
         (Ok(x), Ok(y)) => x.as_raw() == y.as_raw(),
         _ => false,
     }
+}
+
+/// False also when the composition's range or context cannot be read (treated as foreign).
+fn composition_context_is(c: &ITfComposition, ctx: &ITfContext) -> bool {
+    unsafe { c.GetRange().and_then(|r| r.GetContext()) }.is_ok_and(|x| same_object(&x, ctx))
 }
 
 impl ITfTextInputProcessor_Impl for TextService_Impl {
@@ -831,10 +1054,20 @@ impl ITfThreadMgrEventSink_Impl for TextService_Impl {
         })
     }
     fn OnPushContext(&self, _c: Ref<ITfContext>) -> windows_core::Result<()> {
-        guard(|| Ok(()))
+        guard(|| {
+            if self.active() {
+                self.refocus_policy();
+            }
+            Ok(())
+        })
     }
     fn OnPopContext(&self, _c: Ref<ITfContext>) -> windows_core::Result<()> {
-        guard(|| Ok(()))
+        guard(|| {
+            if self.active() {
+                self.refocus_policy();
+            }
+            Ok(())
+        })
     }
 }
 
@@ -939,6 +1172,22 @@ impl ITfCompositionSink_Impl for TextService_Impl {
         comp: Ref<ITfComposition>,
     ) -> windows_core::Result<()> {
         guard(|| {
+            let clear_attr = |c: &ITfComposition| unsafe {
+                if let Ok(range) = c.GetRange() {
+                    if let Ok(ctx) = range.GetContext() {
+                        if let Ok(prop) = ctx.GetProperty(&GUID_PROP_ATTRIBUTE) {
+                            let _ = prop.Clear(ec, &range);
+                        }
+                    }
+                }
+            };
+            if let Some(c) = comp.as_ref() {
+                if self.take_stale(c) {
+                    // Left behind in another context: the session has moved on, keep it.
+                    clear_attr(c);
+                    return Ok(());
+                }
+            }
             let ours = self.composition();
             if let (Some(o), Some(c)) = (ours.as_ref(), comp.as_ref()) {
                 if !same_object(o, c) {
@@ -957,15 +1206,7 @@ impl ITfCompositionSink_Impl for TextService_Impl {
             self.generation.set(self.generation.get().wrapping_add(1));
             self.hide_candidates();
             if let Some(comp) = comp.as_ref() {
-                unsafe {
-                    if let Ok(range) = comp.GetRange() {
-                        if let Ok(ctx) = range.GetContext() {
-                            if let Ok(prop) = ctx.GetProperty(&GUID_PROP_ATTRIBUTE) {
-                                let _ = prop.Clear(ec, &range);
-                            }
-                        }
-                    }
-                }
+                clear_attr(comp);
             }
             Ok(())
         })

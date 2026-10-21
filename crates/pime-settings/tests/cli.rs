@@ -126,3 +126,41 @@ fn usage_errors() {
     assert_eq!(code, 0);
     assert!(out.contains("--check [FILE]"));
 }
+
+#[test]
+fn clear_history_deletes_only_history_files_and_is_idempotent() {
+    let d = Dir::new("clear-history");
+    let (code, out, _) = run(&d.0, &["--clear-history"]);
+    assert_eq!(
+        (code, out.as_str()),
+        (
+            0,
+            "Learned words cleared.
+"
+        )
+    );
+    for n in [
+        "history.bin",
+        "history.bin.tmp",
+        "history.bin.bad",
+        "config.toml",
+    ] {
+        std::fs::write(d.0.join(n), b"x").unwrap();
+    }
+    let (code, out, err) = run(&d.0, &["--clear-history"]);
+    assert_eq!(
+        (code, out.as_str()),
+        (
+            0,
+            "Learned words cleared.
+"
+        ),
+        "{err}"
+    );
+    for n in ["history.bin", "history.bin.tmp", "history.bin.bad"] {
+        assert!(!d.0.join(n).exists(), "{n}");
+    }
+    assert!(d.0.join("config.toml").exists());
+    let (code, _, err) = run(&d.0, &["--clear-history", "extra"]);
+    assert_eq!(code, 4, "{err}");
+}

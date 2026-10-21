@@ -5,10 +5,15 @@
 //!
 //!   a-z ' Tab Down Up 1-9 Space Enter Backspace Escape   as in the IME (PLAN.md 2.2)
 //!   click a candidate   pick it (Session::select_candidate)
-//!   F2 labels   F3 prefer above   F4 footer   F5 clear text   F10 or close: quit
+//!   F2 labels   F3 prefer above   F4 footer   F5 clear text   F6 word completion on/off
+//!   F10 or close: quit
+//!
+//! Word completion uses a small fixed word list (`pime_core::ListCompleter`): type `sl` to
+//! see completions below the divider; Down/Up move into them, Enter or a digit accepts.
 //!
 //! `--smoke` runs the scripted flow `s`, `Tab`, `2`, `z`, `Down`, `Down`, `Up`, `Space`
 //! (one key per 150 ms, printing each state), checks the popup follows it and exits.
+//! `--smoke --complete` runs `s`, `l`, `Down`, `Down`, `Up`, `Enter` with completion on.
 //! `--smoke --pause N` holds for 3 s after scripted step N (0-based), e.g. for a screenshot.
 
 #[cfg(not(windows))]
@@ -27,7 +32,10 @@ mod demo {
     use std::sync::Arc;
 
     use pime_candidate_ui::{CandidateEvent, CandidateView, CandidateWindow, Rect};
-    use pime_core::{keys, CandidateList, Dictionary, KeyEvent, Output, ResolvedConfig, Session};
+    use pime_core::{
+        keys, load_config, CandidateList, Completer, CompletionList, Dictionary, KeyEvent,
+        ListCompleter, Output, Session,
+    };
     use windows::core::{w, PCWSTR};
     use windows::Win32::Foundation::{COLORREF, HWND, LPARAM, LRESULT, POINT, RECT, SIZE, WPARAM};
     use windows::Win32::Graphics::Gdi::*;
@@ -39,6 +47,21 @@ mod demo {
     use windows::Win32::UI::WindowsAndMessaging::*;
 
     const SCRIPT: &[&str] = &["s", "Tab", "2", "z", "Down", "Down", "Up", "Space"];
+    const COMPLETE_SCRIPT: &[&str] = &["s", "l", "Down", "Down", "Up", "Enter"];
+    /// Demo word list (word, Zipf-like score).
+    const WORDS: &[(&str, f32)] = &[
+        ("سلام", 5.0),
+        ("سلامت", 4.2),
+        ("سلطان", 4.0),
+        ("سلیقه", 3.5),
+        ("زبان", 5.1),
+        ("زندگی", 5.3),
+        ("صدا", 4.6),
+        ("صبح", 4.8),
+        ("می\u{200C}خواهم", 4.8),
+        ("میز", 4.5),
+    ];
+    const VK_F6: u32 = 0x75;
     const VK_F2: u32 = 0x71;
     const VK_F3: u32 = 0x72;
     const VK_F4: u32 = 0x73;
@@ -52,6 +75,8 @@ mod demo {
         committed: String,
         preedit: String,
         list: Option<CandidateList>,
+        completions: Option<CompletionList>,
+        complete: bool,
         labels: bool,
         footer: bool,
         prefer_above: bool,
@@ -67,21 +92,55 @@ mod demo {
         DEMO.with(|d| d.try_borrow_mut().ok()?.as_mut().map(f))
     }
 
-    /// The same mapping the TIP's presenter uses (`pime_tip::candidates::to_view`).
-    fn to_view(list: &CandidateList, labels: bool, footer: bool) -> CandidateView {
-        CandidateView {
-            items: list.items.clone(),
-            highlighted: list.highlighted,
+    /// The same mapping the TIP's presenter uses (`pime_tip::candidates::to_view_full`).
+    fn to_view(
+        alts: Option<&CandidateList>,
+        comps: Option<&CompletionList>,
+        preedit: &str,
+        labels: bool,
+        footer: bool,
+    ) -> CandidateView {
+        let mut v = CandidateView {
             show_numbers: true,
-            size_percent: 0,
-            labels: labels.then(|| {
+            show_footer: footer,
+            ..Default::default()
+        };
+        if let Some(list) = alts {
+            v.items = list.items.clone();
+            v.highlighted = list.highlighted;
+            v.labels = labels.then(|| {
                 list.items
                     .iter()
                     .map(|c| pime_core::candidate_label(c).unwrap_or("").to_owned())
                     .collect()
-            }),
-            show_footer: footer,
+            });
         }
+        if let Some(c) = comps {
+            v.completions = c.items.clone();
+            v.completion_highlight = c.highlighted;
+            let typed = !preedit.is_empty() && c.items.iter().all(|w| w.starts_with(preedit));
+            v.completion_prefix_chars = if typed { preedit.chars().count() } else { 0 };
+        }
+        v
+    }
+
+    fn new_session(complete: bool) -> Session {
+        let toml = if complete {
+            "[autocomplete]\nenabled = true\n"
+        } else {
+            ""
+        };
+        let mut s = Session::new(
+            Arc::new(load_config(toml).config),
+            Arc::new(Dictionary::empty()),
+        );
+        if complete {
+            let words = WORDS.iter().map(|(w, f)| ((*w).to_owned(), *f));
+            s.set_completer(Some(
+                Arc::new(ListCompleter::new(words)) as Arc<dyn Completer>
+            ));
+        }
+        s
     }
 
     fn key_event(name: &str) -> KeyEvent {
@@ -115,29 +174,45 @@ mod demo {
             let _ = InvalidateRect(Some(d.host), None, true);
             let _ = UpdateWindow(d.host);
         }
-        let prev = d.list.take();
-        match &out.candidates {
-            Some(list) if !list.items.is_empty() => {
-                let same_items = prev.as_ref().is_some_and(|p| p.items == list.items);
-                if same_items && d.popup.is_visible() {
-                    d.popup.set_highlight(list.highlighted);
-                } else {
-                    d.popup.update(&to_view(list, d.labels, d.footer));
-                }
-                d.popup.show_at(d.anchor, d.prefer_above);
+        let alts = out.candidates.as_ref().filter(|l| !l.items.is_empty());
+        let comps = out.completions.as_ref().filter(|c| !c.items.is_empty());
+        if alts.is_some() || comps.is_some() {
+            let view = to_view(alts, comps, &d.preedit, d.labels, d.footer);
+            let prev_comps = d.completions.as_ref().map(|c| &c.items);
+            let same_rows = d.list.as_ref().map(|l| &l.items) == alts.map(|l| &l.items)
+                && prev_comps == comps.map(|c| &c.items);
+            if same_rows && d.popup.is_visible() {
+                d.popup.set_selected_row(view.selected_row());
+            } else {
+                d.popup.update(&view);
             }
-            _ => d.popup.hide(),
+            d.popup.show_at(d.anchor, d.prefer_above);
+        } else {
+            d.popup.hide();
         }
         d.list = out.candidates;
+        d.completions = out.completions;
     }
 
     fn refresh(d: &mut Demo) {
         let out = d.session.snapshot();
         d.list = None;
+        d.completions = None;
         apply(d, out);
     }
 
     fn describe(d: &Demo) -> String {
+        if let Some(c) = &d.completions {
+            return format!(
+                "preedit={:?} alts={:?} completions={:?} completion_highlight={:?} popup_row={:?} committed={:?}",
+                d.preedit,
+                d.list.as_ref().map(|l| &l.items),
+                c.items,
+                c.highlighted,
+                d.popup.selected_row(),
+                d.committed
+            );
+        }
         match &d.list {
             Some(l) => format!(
                 "preedit={:?} list={:?} highlighted={} popup_visible={} popup_highlight={} committed={:?}",
@@ -149,6 +224,31 @@ mod demo {
                 d.popup.is_visible(),
                 d.committed
             ),
+        }
+    }
+
+    /// Completion smoke: `s l Down Down Up Enter` over `WORDS` (best first: سلام, سلامت, ...).
+    fn check_complete(step: usize, d: &Demo) -> Result<(), String> {
+        let n = d.list.as_ref().map_or(0, |l| l.items.len());
+        let comps = d.completions.as_ref();
+        let first = comps.and_then(|c| c.items.first()).map(String::as_str);
+        let hl = comps.and_then(|c| c.highlighted);
+        let ok = match step {
+            0 => d.popup.is_visible() && comps.is_none(),
+            1 => d.popup.is_visible() && first == Some("سلام") && hl.is_none(),
+            2 | 4 => hl == Some(0) && d.popup.selected_row() == Some(n),
+            3 => hl == Some(1) && d.popup.selected_row() == Some(n + 1),
+            5 => !d.popup.is_visible() && d.committed == "سلام",
+            _ => true,
+        };
+        if ok {
+            Ok(())
+        } else {
+            Err(format!(
+                "step {step} ({}): {}",
+                COMPLETE_SCRIPT[step],
+                describe(d)
+            ))
         }
     }
 
@@ -209,7 +309,7 @@ mod demo {
             let old = SelectObject(hdc, small.into());
             SetBkMode(hdc, TRANSPARENT);
             SetTextColor(hdc, COLORREF(0x606060));
-            let mut help: Vec<u16> = "Type Latin letters (s, z, t, h, a, gh ...). Tab/Down/Up move, 1-9 or click picks, Space commits. F2 labels, F3 above, F4 footer, F5 clear, F10 quits."
+            let mut help: Vec<u16> = "Type Latin letters (s, z, t, h, a, gh ...); try \"sl\" for word completions. Tab/Down/Up move, 1-9 or click picks, Space commits. F2 labels, F3 above, F4 footer, F5 clear, F6 completion on/off, F10 quits."
                 .encode_utf16()
                 .collect();
             let mut hr = RECT {
@@ -302,6 +402,12 @@ mod demo {
                         d.committed.clear();
                         refresh(d);
                     }
+                    VK_F6 => {
+                        d.complete = !d.complete;
+                        d.session = new_session(d.complete);
+                        d.preedit.clear();
+                        refresh(d);
+                    }
                     _ => {
                         let k = KeyEvent {
                             vk,
@@ -328,6 +434,13 @@ mod demo {
     pub fn run() -> i32 {
         let args: Vec<String> = std::env::args().collect();
         let smoke = args.iter().any(|a| a == "--smoke");
+        // Interactive runs start with completion on; the classic smoke script runs without.
+        let complete = !smoke || args.iter().any(|a| a == "--complete");
+        let script = if smoke && complete {
+            COMPLETE_SCRIPT
+        } else {
+            SCRIPT
+        };
         let pause_after = args
             .iter()
             .position(|a| a == "--pause")
@@ -384,13 +497,12 @@ mod demo {
                 *d.borrow_mut() = Some(Demo {
                     host,
                     popup,
-                    session: Session::new(
-                        Arc::new(ResolvedConfig::default()),
-                        Arc::new(Dictionary::empty()),
-                    ),
+                    session: new_session(complete),
                     committed: String::new(),
                     preedit: String::new(),
                     list: None,
+                    completions: None,
+                    complete,
                     labels: true,
                     footer: true,
                     prefer_above: false,
@@ -409,13 +521,17 @@ mod demo {
                 if smoke && msg.message == WM_TIMER {
                     if pause_after.is_some_and(|p| step == p + 1) && held < 20 {
                         held += 1;
-                    } else if step < SCRIPT.len() {
-                        let key = SCRIPT[step];
+                    } else if step < script.len() {
+                        let key = script[step];
                         let res = with_demo(|d| {
                             let out = d.session.on_key(&key_event(key));
                             apply(d, out);
                             println!("{key:>6} -> {}", describe(d));
-                            check(step, d)
+                            if complete {
+                                check_complete(step, d)
+                            } else {
+                                check(step, d)
+                            }
                         });
                         if let Some(Err(e)) = res {
                             failures.push(e);

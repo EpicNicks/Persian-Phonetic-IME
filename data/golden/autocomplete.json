@@ -1,0 +1,728 @@
+{
+ "version": 1,
+ "notes": "Autocomplete session cases (docs/autocomplete.md 2.3-2.6, 8). Runner-only steps: \"Click<row>\" = select_candidate(row), \"FocusLost\", \"Terminated\". Unless noted, completer words are سلام 5.0, سلامت 4.2, سلطان 4.0.",
+ "cases": [
+  {
+   "type": "session", "name": "ac completions appear at predict_min_chars",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l"],
+   "committed": "", "preedit": "سل", "last_eaten": true,
+   "candidates_after_last": null,
+   "completions_after_last": ["سلام", "سلامت", "سلطان"],
+   "completion_highlight_after_last": null,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac below predict_min_chars no completions",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s"],
+   "committed": "", "preedit": "س",
+   "candidates_after_last": ["س", "ص", "ث"],
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac predict_min_chars 1 numbers rows after alternates",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\npredict_min_chars = 1\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s"],
+   "committed": "", "preedit": "س",
+   "candidates_after_last": ["س", "ص", "ث"],
+   "completions_after_last": ["سلام", "سلامت", "سلطان"]
+  },
+  {
+   "type": "session", "name": "ac predict_min_chars 1 digit 4 accepts first completion",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\npredict_min_chars = 1\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "4"],
+   "committed": "سلام", "preedit": "", "last_eaten": true,
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac predict_min_chars 3",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\npredict_min_chars = 3\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l"],
+   "committed": "", "preedit": "سل",
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac predict_min_chars 3 reached",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\npredict_min_chars = 3\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a"],
+   "committed": "", "preedit": "سلا",
+   "candidates_after_last": ["ا", "آ"],
+   "completions_after_last": ["سلام", "سلامت"]
+  },
+  {
+   "type": "session", "name": "ac letters requery",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "m"],
+   "committed": "", "preedit": "سلام",
+   "completions_after_last": ["سلامت"]
+  },
+  {
+   "type": "session", "name": "ac no match no section",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "m", "t", "i"],
+   "committed": "", "preedit": "سلامتی",
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac pending c hides completions",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "c"],
+   "committed": "", "preedit": "سلc",
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac down highlights first",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down"],
+   "committed": "", "preedit": "سل", "last_eaten": true,
+   "completions_after_last": ["سلام", "سلامت", "سلطان"],
+   "completion_highlight_after_last": 0
+  },
+  {
+   "type": "session", "name": "ac down cycles back to typed text",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Down", "Down", "Down"],
+   "committed": "", "preedit": "سل", "last_eaten": true,
+   "completions_after_last": ["سلام", "سلامت", "سلطان"],
+   "completion_highlight_after_last": null
+  },
+  {
+   "type": "session", "name": "ac up from none highlights last",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Up"],
+   "committed": "", "preedit": "سل", "last_eaten": true,
+   "completion_highlight_after_last": 2
+  },
+  {
+   "type": "session", "name": "ac up from first returns to none",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Up"],
+   "committed": "", "preedit": "سل",
+   "completion_highlight_after_last": null
+  },
+  {
+   "type": "session", "name": "ac down enter accepts",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Enter"],
+   "committed": "سلام", "preedit": "", "last_eaten": true,
+   "completions_after_last": null,
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac accept second skips first",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Down", "Enter"],
+   "committed": "سلامت", "preedit": "",
+   "learn": [["skipped", "سلام"], ["accepted", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac up enter accepts last skips two",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Up", "Enter"],
+   "committed": "سلطان", "preedit": "",
+   "learn": [["skipped", "سلام"], ["skipped", "سلامت"], ["accepted", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac enter without highlight commits typed and ignores",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Enter"],
+   "committed": "سل", "preedit": "", "last_eaten": true,
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"], ["ignored", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac enter commit-and-pass accepting is eaten",
+   "config": { "preset": "qamooscheh", "toml": "[options]\nenter = \"commit-and-pass\"\n[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Enter"],
+   "committed": "سلام", "preedit": "", "last_eaten": true,
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac enter commit-and-pass without highlight passes",
+   "config": { "preset": "qamooscheh", "toml": "[options]\nenter = \"commit-and-pass\"\n[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Enter"],
+   "committed": "سل", "preedit": "", "last_eaten": false,
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"], ["ignored", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac space with highlight accepts and adds space",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Space"],
+   "committed": "سلام ", "preedit": "", "last_eaten": true,
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac space without highlight commits typed and ignores",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Space"],
+   "committed": "سل ", "preedit": "",
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"], ["ignored", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac space top-candidate accepts first completion",
+   "config": { "preset": "qamooscheh", "toml": "[options]\nspace = \"top-candidate\"\n[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Space"],
+   "committed": "سلام ", "preedit": "",
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac space top-candidate with highlight accepts highlighted",
+   "config": { "preset": "qamooscheh", "toml": "[options]\nspace = \"top-candidate\"\n[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Down", "Space"],
+   "committed": "سلامت ", "preedit": "",
+   "learn": [["skipped", "سلام"], ["accepted", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac space top-candidate without completions is v1",
+   "config": { "preset": "qamooscheh", "toml": "[options]\nspace = \"top-candidate\"\n[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "Space"],
+   "committed": "س ", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac digit accepts completion row",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "2"],
+   "committed": "سلامت", "preedit": "", "last_eaten": true,
+   "learn": [["skipped", "سلام"], ["accepted", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac digit beyond rows is eaten",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "7"],
+   "committed": "", "preedit": "سل", "last_eaten": true,
+   "completions_after_last": ["سلام", "سلامت", "سلطان"],
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac digit with number_select off commits typed",
+   "config": { "preset": "qamooscheh", "toml": "[options]\nnumber_select = false\n[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "2"],
+   "committed": "سل۲", "preedit": "",
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"], ["ignored", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac digit zero commits typed",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "0"],
+   "committed": "سل۰", "preedit": "",
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"], ["ignored", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac punctuation commits typed and ignores",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", ","],
+   "committed": "سل،", "preedit": "",
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"], ["ignored", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac rows numbered after alternates",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "4"],
+   "committed": "سلامت", "preedit": "",
+   "learn": [["skipped", "سلام"], ["accepted", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac digit on alternate row is v1 and ignores",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "2"],
+   "committed": "سلآ", "preedit": "",
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac digit past both sections eaten",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "5"],
+   "committed": "", "preedit": "سلا", "last_eaten": true,
+   "candidates_after_last": ["ا", "آ"],
+   "completions_after_last": ["سلام", "سلامت"]
+  },
+  {
+   "type": "session", "name": "ac click completion row",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "Click2"],
+   "committed": "سلام", "preedit": "", "last_eaten": true,
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac click alternate row",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "Click0"],
+   "committed": "سلا", "preedit": "",
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac click past rows ignored",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Click5"],
+   "committed": "", "preedit": "سل",
+   "completions_after_last": ["سلام", "سلامت", "سلطان"]
+  },
+  {
+   "type": "session", "name": "ac down with alternates moves completion highlight",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "Down"],
+   "committed": "", "preedit": "سلا",
+   "candidates_after_last": ["ا", "آ"],
+   "completion_highlight_after_last": 0
+  },
+  {
+   "type": "session", "name": "ac tab cycles alternates and requeries",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0], ["سلآمد", 1.0]] },
+   "keys": ["s", "l", "a", "Down", "Tab"],
+   "committed": "", "preedit": "سلآ", "last_eaten": true,
+   "candidates_after_last": ["ا", "آ"],
+   "completions_after_last": ["سلآمد"],
+   "completion_highlight_after_last": null
+  },
+  {
+   "type": "session", "name": "ac tab without alternates commits and passes",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Tab"],
+   "committed": "سل", "preedit": "", "last_eaten": false,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac escape closes popup",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape"],
+   "committed": "", "preedit": "سل", "last_eaten": true,
+   "candidates_after_last": null,
+   "completions_after_last": null,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac escape twice cancels and emits dismissed",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape", "Escape"],
+   "committed": "", "preedit": "", "last_eaten": true,
+   "learn": [["dismissed", "سلام"], ["dismissed", "سلامت"], ["dismissed", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac escape then down reopens without highlight",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Escape", "Down"],
+   "committed": "", "preedit": "سل", "last_eaten": true,
+   "completions_after_last": ["سلام", "سلامت", "سلطان"],
+   "completion_highlight_after_last": null
+  },
+  {
+   "type": "session", "name": "ac escape then up reopens",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "Escape", "Up"],
+   "committed": "", "preedit": "سلا",
+   "candidates_after_last": ["ا", "آ"],
+   "completions_after_last": ["سلام", "سلامت"],
+   "completion_highlight_after_last": null
+  },
+  {
+   "type": "session", "name": "ac escape then tab reopens with alternates",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "Escape", "Tab"],
+   "committed": "", "preedit": "سلا",
+   "candidates_after_last": ["ا", "آ"],
+   "completions_after_last": ["سلام", "سلامت"]
+  },
+  {
+   "type": "session", "name": "ac escape then typing reopens",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape", "a"],
+   "committed": "", "preedit": "سلا",
+   "completions_after_last": ["سلام", "سلامت"]
+  },
+  {
+   "type": "session", "name": "ac dismissed then accepted dedupes to accepted",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape", "Down", "Down", "Enter"],
+   "committed": "سلام", "preedit": "",
+   "learn": [["accepted", "سلام"], ["dismissed", "سلامت"], ["dismissed", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac dismissed beats later ignored",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape", "a", "Enter"],
+   "committed": "سلا", "preedit": "",
+   "learn": [["dismissed", "سلام"], ["dismissed", "سلامت"], ["dismissed", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac skipped then accepted in a later list",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "m", "1"],
+   "committed": "سلامت", "preedit": "",
+   "learn": [["accepted", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac dismissed kept on focus lost",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape", "FocusLost"],
+   "committed": "سل", "preedit": "",
+   "learn": [["dismissed", "سلام"], ["dismissed", "سلامت"], ["dismissed", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac terminated drops events",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape", "Terminated", "s", "l", "Down", "Enter"],
+   "committed": "سلام", "preedit": "",
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac focus lost is neutral",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "FocusLost"],
+   "committed": "سل", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac navigation key is neutral",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Left"],
+   "committed": "سل", "preedit": "", "last_eaten": false,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac ctrl chord is neutral",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Ctrl+a"],
+   "committed": "سل", "preedit": "", "last_eaten": false,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac backspace requeries and resets highlight",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "m", "Down", "Backspace"],
+   "committed": "", "preedit": "سلا", "last_eaten": true,
+   "completions_after_last": ["سلام", "سلامت"],
+   "completion_highlight_after_last": null,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac backspace to empty ends episode",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape", "Backspace", "Backspace"],
+   "committed": "", "preedit": "",
+   "learn": [["dismissed", "سلام"], ["dismissed", "سلامت"], ["dismissed", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac typing a word out in full is neutral",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "m", "Space"],
+   "committed": "سلام ", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac typing past a word ignores only the visible list",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "m", "Space"],
+   "committed": "سلام ", "preedit": "",
+   "learn": [["ignored", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac ignored only first three rows",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0], ["سلب", 3.0], ["سلول", 2.0]] },
+   "keys": ["s", "l", "Enter"],
+   "committed": "سل", "preedit": "",
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"], ["ignored", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac accepted text is not reused by the next word",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Enter", "h", "a"],
+   "committed": "سلام", "preedit": "ها",
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac shift space resets highlight and keeps typed zwnj",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "ShiftSpace"],
+   "committed": "", "preedit": "سل‌",
+   "completions_after_last": ["سل‌ام", "سل‌امت", "سل‌طان"],
+   "completion_highlight_after_last": null
+  },
+  {
+   "type": "session", "name": "ac max_completions limits rows",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nmax_completions = 2\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l"],
+   "committed": "", "preedit": "سل",
+   "completions_after_last": ["سلام", "سلامت"]
+  },
+  {
+   "type": "session", "name": "ac default max_completions is five",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["ربا", 9.0], ["ربب", 8.0], ["ربپ", 7.0], ["ربت", 6.0], ["ربج", 5.0], ["ربد", 4.0], ["ربر", 3.0]] },
+   "keys": ["r", "b"],
+   "committed": "", "preedit": "رب",
+   "candidates_after_last": null,
+   "completions_after_last": ["ربا", "ربب", "ربپ", "ربت", "ربج"]
+  },
+  {
+   "type": "session", "name": "ac popup never exceeds nine rows",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nmax_completions = 9\n" },
+   "completer": { "words": [["رزا", 9.0], ["رزب", 8.0], ["رزپ", 7.0], ["رزت", 6.0], ["رزج", 5.0], ["رزد", 4.0], ["رزر", 3.0]] },
+   "keys": ["r", "z"],
+   "committed": "", "preedit": "رز",
+   "candidates_after_last": ["ز", "ذ", "ض", "ظ"],
+   "completions_after_last": ["رزا", "رزب", "رزپ", "رزت", "رزج"]
+  },
+  {
+   "type": "session", "name": "ac digit 9 reaches last completion row",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nmax_completions = 9\n" },
+   "completer": { "words": [["رزا", 9.0], ["رزب", 8.0], ["رزپ", 7.0], ["رزت", 6.0], ["رزج", 5.0], ["رزد", 4.0], ["رزر", 3.0]] },
+   "keys": ["r", "z", "9"],
+   "committed": "رزج", "preedit": "",
+   "learn": [["skipped", "رزا"], ["skipped", "رزب"], ["skipped", "رزپ"], ["skipped", "رزت"], ["accepted", "رزج"]]
+  },
+  {
+   "type": "session", "name": "ac max_completions above nine is clamped",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nmax_completions = 40\n" },
+   "completer": { "words": [["سلا", 9.0], ["سلب", 8.0], ["سلپ", 7.0], ["سلت", 6.0], ["سلج", 5.0], ["سلد", 4.0], ["سلر", 3.0], ["سلز", 2.0], ["سلش", 1.5], ["سلف", 1.0]] },
+   "keys": ["s", "l"],
+   "committed": "", "preedit": "سل",
+   "completions_after_last": ["سلا", "سلب", "سلپ", "سلت", "سلج", "سلد", "سلر", "سلز", "سلش"]
+  },
+  {
+   "type": "session", "name": "ac zwnj offered at the junction",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["می‌خواهم", 5.0]] },
+   "keys": ["m", "i"],
+   "committed": "", "preedit": "می",
+   "completions_after_last": ["می‌خواهم"]
+  },
+  {
+   "type": "session", "name": "ac zwnj not offered after typing past it",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["می‌خواهم", 5.0]] },
+   "keys": ["m", "i", "x"],
+   "committed": "", "preedit": "میخ",
+   "completions_after_last": ["میخواهم"]
+  },
+  {
+   "type": "session", "name": "ac zwnj typed then letter keeps zwnj form",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["می‌خواهم", 5.0]] },
+   "keys": ["m", "i", "ShiftSpace", "x"],
+   "committed": "", "preedit": "می‌خ",
+   "completions_after_last": ["می‌خواهم"]
+  },
+  {
+   "type": "session", "name": "ac trailing typed zwnj",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["می‌خواهم", 5.0], ["میخک", 4.0]] },
+   "keys": ["m", "i", "ShiftSpace"],
+   "committed": "", "preedit": "می‌",
+   "completions_after_last": ["می‌خواهم", "می‌خک"]
+  },
+  {
+   "type": "session", "name": "ac zwnj not counted for predict_min_chars",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\npredict_min_chars = 3\n" },
+   "completer": { "words": [["می‌خواهم", 5.0]] },
+   "keys": ["m", "i", "ShiftSpace"],
+   "committed": "", "preedit": "می‌",
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac accept without zwnj after typing past it",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["می‌خواهم", 5.0]] },
+   "keys": ["m", "i", "x", "Down", "Enter"],
+   "committed": "میخواهم", "preedit": "",
+   "learn": [["accepted", "میخواهم"]]
+  },
+  {
+   "type": "session", "name": "ac accept zwnj form",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["می‌خواهم", 5.0]] },
+   "keys": ["m", "i", "1"],
+   "committed": "می‌خواهم", "preedit": "",
+   "learn": [["accepted", "می‌خواهم"]]
+  },
+  {
+   "type": "session", "name": "ac arabic variants never appear",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["كتاب", 5.0], ["کتابي", 4.0], ["کتة", 3.0], ["کتک", 2.0]] },
+   "keys": ["k", "t"],
+   "committed": "", "preedit": "کت",
+   "candidates_after_last": ["ت", "ط"],
+   "completions_after_last": ["کتاب", "کتک"]
+  },
+  {
+   "type": "session", "name": "ac policy completions off is v1",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "policy": { "completions": false, "learning": false },
+   "keys": ["s", "l", "Down"],
+   "committed": "سل", "preedit": "", "last_eaten": false,
+   "completions_after_last": null,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac policy learning off records nothing",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "policy": { "completions": true, "learning": false },
+   "keys": ["s", "l", "Down", "Down", "Enter", "s", "l", "Escape", "Escape"],
+   "committed": "سلامت", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac config learning off records nothing",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nlearning = false\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down", "Enter", "s", "l", "Enter"],
+   "committed": "سلامسل", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac disabled config down is v1 commit",
+   "config": "qamooscheh",
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Down"],
+   "committed": "سل", "preedit": "", "last_eaten": false,
+   "completions_after_last": null,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac disabled config digit is v1",
+   "config": "qamooscheh",
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "1"],
+   "committed": "سل۱", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac disabled config escape cancels",
+   "config": "qamooscheh",
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Escape"],
+   "committed": "", "preedit": "", "last_eaten": true,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac disabled config space top-candidate is v1",
+   "config": { "preset": "qamooscheh", "toml": "[options]\nspace = \"top-candidate\"\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "Space"],
+   "committed": "سل ", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac disabled config alternates down cycles",
+   "config": "qamooscheh",
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "a", "Down"],
+   "committed": "", "preedit": "سلآ",
+   "candidates_after_last": ["ا", "آ"],
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac enabled without completer is v1",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "keys": ["s", "l", "a", "Down", "Enter"],
+   "committed": "سلآ", "preedit": "",
+   "completions_after_last": null,
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac idle keys unchanged",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["Space", "1", ",", "Enter"],
+   "committed": " ۱،", "preedit": "", "last_eaten": false,
+   "learn": []
+  },
+  {
+   "type": "config_error", "name": "ac max_completions zero keeps default",
+   "user_config_toml": "[autocomplete]\nmax_completions = 0\nenabled = true\n",
+   "expect": { "fallback": "entry",
+               "applied": { "autocomplete.enabled": true, "autocomplete.max_completions": 5 },
+               "messages_contain": ["line 2", "max_completions must be at least 1, not 0"] }
+  },
+  {
+   "type": "config_error", "name": "ac max_completions not a number",
+   "user_config_toml": "[autocomplete]\nmax_completions = \"five\"\n",
+   "expect": { "fallback": "entry",
+               "applied": { "autocomplete.max_completions": 5 },
+               "messages_contain": ["max_completions must be a whole number (for example 5), not text."] }
+  },
+  {
+   "type": "config_error", "name": "ac max_completions misspelt",
+   "user_config_toml": "[autocomplete]\nmax_completion = 3\n",
+   "expect": { "fallback": "entry",
+               "applied": { "autocomplete.max_completions": 5 },
+               "messages_contain": ["unknown setting \"max_completion\"", "Did you mean \"max_completions\"?"] }
+  },
+  {
+   "type": "config_error", "name": "ac autocomplete keys applied",
+   "user_config_toml": "[autocomplete]\nenabled = true\npredict_min_chars = 3\nlearning = false\nmax_completions = 7\n",
+   "expect": { "fallback": "none",
+               "applied": { "autocomplete.enabled": true, "autocomplete.predict_min_chars": 3,
+                            "autocomplete.learning": false, "autocomplete.max_completions": 7 } }
+  },
+  {
+   "type": "config_error", "name": "ac enabled not a bool",
+   "user_config_toml": "[autocomplete]\nenabled = \"yes\"\n",
+   "expect": { "fallback": "entry",
+               "applied": { "autocomplete.enabled": false },
+               "messages_contain": ["enabled must be true or false (for example true), not text."] }
+  }
+ ]
+}

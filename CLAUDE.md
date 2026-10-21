@@ -10,7 +10,7 @@ Persian Phonetic IME: a standalone Windows TSF input method (Rust) for typing Pe
 
 ## Current layout
 
-`crates/pime-core` (engine, config, Session; no Windows deps), `crates/pime-candidate-ui`, `data/` (presets, golden), `spike/` (disposable, excluded from the workspace), `docs/`. Other crates in PLAN.md section 5.1 do not exist yet.
+`crates/pime-core` (engine, config, Session; no Windows deps), `crates/pime-candidate-ui`, `crates/pime-tip` (TSF DLL), `crates/pime-settings`, `crates/pime-setup`, `crates/pime-ids` (frozen GUIDs), `crates/pime-dict` (autocomplete dictionary, history, runtime; see `docs/autocomplete.md`), `xtask` (build-dict, check-dict, eval-dict), `tools/wordlist` and `data/dict` (word list and licence notices), `fuzz/` (standalone cargo-fuzz package), `installer/` (WiX MSI), `data/` (presets, golden), `spike/` (disposable, excluded from the workspace), `docs/`. Not yet present from PLAN.md section 5.1: `harness/`.
 
 ## Rules
 

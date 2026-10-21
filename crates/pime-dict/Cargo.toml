@@ -1,0 +1,11 @@
+[package]
+name = "pime-dict"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pime-core = { path = "../pime-core" }
+fst = "0.4"
+crc32fast = "1"
+unicode-normalization = "0.1"

@@ -1,0 +1,49 @@
+Persian word-frequency data: attribution and licence notice
+===========================================================
+
+The autocomplete dictionary (dict.bin) and its source lists in this folder
+(fa-wordfreq.tsv, fixture.tsv, eval-prefixes.tsv) are derived from the
+Persian word-frequency data of the "wordfreq" project.
+
+wordfreq
+  Copyright 2022 Robyn Speer. https://github.com/rspeer/wordfreq
+  Code: Apache License, Version 2.0 (http://www.apache.org/licenses/LICENSE-2.0).
+  Data: "may be redistributed under a Creative Commons Attribution-ShareAlike
+  4.0 license" (https://creativecommons.org/licenses/by-sa/4.0/).
+  Version used: 3.1.1, word list "small" for Persian (fa).
+
+wordfreq's Persian frequencies are aggregated from these sources:
+  - Wikipedia, the free encyclopedia (http://www.wikipedia.org), CC BY-SA.
+  - OpenSubtitles, via the OPUS OpenSubtitles 2018 corpus
+    (http://opus.nlpl.eu/OpenSubtitles.php); used with attribution to
+    OpenSubtitles.
+  - OSCAR, web text (https://oscar-corpus.com/).
+  - Twitter, word statistics only; no Twitter content is stored or republished.
+
+Changes made
+  The wordfreq Persian list was filtered and adapted: Unicode NFC normalisation;
+  Arabic letter variants mapped to Persian (ي ى to ی, ك to ک, ة to ه); tatweel and
+  diacritics removed and their counts merged; tokens containing Latin letters,
+  digits, other scripts or symbols removed; zero-width non-joiner (ZWNJ) use
+  normalised; bare suffix and prefix tokens and a small list of vulgar words
+  removed; frequencies converted to a Zipf scale (log10 of occurrences per
+  billion words, two decimals); a small hand-curated list of additional words
+  (extra.tsv) added; the result compiled into a compact binary database
+  (dict.bin). The build recipe is public: tools/wordlist/ and `xtask build-dict`.
+
+Licence of the derived data
+  The dictionary data (the .tsv files in this folder and dict.bin) is an adaptation
+  of wordfreq's data and is distributed under the Creative Commons
+  Attribution-ShareAlike 4.0 International licence (CC BY-SA 4.0). The full
+  text is in CC-BY-SA-4.0.txt. dict.bin is a separate data file loaded at run
+  time; the licence of the surrounding program code (MIT) is not affected.
+  No additional restrictions are applied to the data.
+
+Apache License 2.0 notice (wordfreq code)
+  Licensed under the Apache License, Version 2.0 (the "License"); you may not
+  use wordfreq except in compliance with the License. You may obtain a copy at
+  http://www.apache.org/licenses/LICENSE-2.0. Unless required by applicable law
+  or agreed to in writing, software distributed under the License is distributed
+  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either
+  express or implied. The wordfreq code is used only offline, to export the
+  word list; it is not part of the installed program.

@@ -18,6 +18,8 @@ pub mod dip {
     pub const LABEL_GAP: f32 = 18.0;
     pub const GLYPH_LINE: f32 = 36.0;
     pub const FOOTER_H: f32 = 20.0;
+    /// Space above and below the 1px divider between alternates and completions.
+    pub const DIVIDER_PAD: f32 = 2.0;
     pub const MIN_WIDTH: f32 = 112.0;
     /// Row highlight corner radius.
     pub const RADIUS: f32 = 3.0;
@@ -37,6 +39,8 @@ pub struct LayoutInput {
     pub show_numbers: bool,
     pub has_labels: bool,
     pub footer: bool,
+    /// Draw a divider after this many rows (the alternates) when completions follow.
+    pub divider_after: Option<usize>,
     /// Widest glyph run / label run in physical pixels, from DirectWrite.
     pub glyph_width: f32,
     pub label_width: f32,
@@ -59,6 +63,8 @@ pub struct Layout {
     pub rows: Vec<RowLayout>,
     /// Footer text rect (row padding applied) in the band along the bottom edge.
     pub footer: Option<Rect>,
+    /// The 1px divider line between alternates and completions.
+    pub divider: Option<Rect>,
 }
 
 impl Layout {
@@ -85,15 +91,27 @@ impl Layout {
         let row_h = px(dip::GLYPH_LINE, s) + 2 * pad_y;
         let footer_h = if inp.footer { px(dip::FOOTER_H, s) } else { 0 };
         let rows_n = inp.rows.min(MAX_ROWS);
+        // Only between two non-empty sections.
+        let divider_after = inp.divider_after.filter(|&d| d > 0 && d < rows_n);
+        let div_pad = px(dip::DIVIDER_PAD, s);
+        let divider_band = if divider_after.is_some() {
+            2 * div_pad + 1
+        } else {
+            0
+        };
 
         let content = inp.glyph_width.ceil() as i32 + label_w + label_gap;
         let width = (2 * outer + 2 * pad_x + num_w + gap + content).max(px(dip::MIN_WIDTH, s));
-        let rows_bottom = outer + row_h * rows_n as i32;
+        let rows_bottom = outer + row_h * rows_n as i32 + divider_band;
         let height = rows_bottom + outer + footer_h;
+        let row_top = |i: usize| {
+            let below = divider_after.is_some_and(|d| i >= d);
+            outer + row_h * i as i32 + if below { divider_band } else { 0 }
+        };
 
-        let rows = (0..rows_n as i32)
+        let rows = (0..rows_n)
             .map(|i| {
-                let top = outer + i * row_h;
+                let top = row_top(i);
                 let row = Rect::new(outer, top, width - outer, top + row_h);
                 // RTL: the number column sits on the right edge, text right-aligned beside it.
                 let number = Rect::new(
@@ -131,6 +149,11 @@ impl Layout {
             )
         });
 
+        let divider = divider_after.map(|d| {
+            let y = row_top(d) - divider_band + div_pad;
+            Rect::new(outer + pad_x, y, width - outer - pad_x, y + 1)
+        });
+
         Layout {
             size: Size {
                 w: width,
@@ -138,6 +161,7 @@ impl Layout {
             },
             rows,
             footer,
+            divider,
         }
     }
 
@@ -157,6 +181,7 @@ mod tests {
             show_numbers: true,
             has_labels: labels,
             footer: false,
+            divider_after: None,
             glyph_width: 20.0 * scale,
             label_width: if labels { 30.0 * scale } else { 0.0 },
             scale,
@@ -243,5 +268,52 @@ mod tests {
         assert_eq!(l.hit_test(50, l.size.h), None);
         assert_eq!(l.hit_test(-5, -5), None);
         assert_eq!(Layout::default().hit_test(0, 0), None);
+    }
+
+    #[test]
+    fn divider_between_sections() {
+        let mut i = input(5, false, 1.0);
+        i.divider_after = Some(3);
+        let l = Layout::compute(&i);
+        // Band = 2 + 1 + 2 at 1x.
+        assert_eq!(l.size.h, 6 + 5 * ROW + 5);
+        let d = l.divider.unwrap();
+        assert_eq!(d.height(), 1);
+        assert_eq!(d.top, 3 + 3 * ROW + 2);
+        assert_eq!((d.left, d.right), (13, l.size.w - 13));
+        assert_eq!(l.rows[2].row.bottom, 3 + 3 * ROW);
+        assert_eq!(
+            l.rows[3].row.top,
+            3 + 3 * ROW + 5,
+            "completions start below the band"
+        );
+        assert_eq!(l.rows[4].row.bottom, l.size.h - 3);
+        assert_eq!(l.hit_test(50, d.top), None, "the divider is not a row");
+        assert_eq!(l.hit_test(50, l.rows[3].row.top), Some(3));
+        assert_eq!(l.hit_test(50, l.rows[3].row.top - 1), None);
+        assert_eq!(l.hit_test(50, l.rows[4].row.top), Some(4));
+
+        // No divider without both sections.
+        for after in [Some(0), Some(5), Some(9), None] {
+            i.divider_after = after;
+            let l = Layout::compute(&i);
+            assert_eq!(l.divider, None, "{after:?}");
+            assert_eq!(l.size.h, 6 + 5 * ROW);
+        }
+        let mut i = input(20, false, 1.0);
+        i.divider_after = Some(7);
+        let l = Layout::compute(&i);
+        assert_eq!(l.rows.len(), MAX_ROWS);
+        assert!(l.divider.is_some());
+        assert_eq!(l.size.h, 6 + 9 * ROW + 5);
+    }
+
+    #[test]
+    fn divider_scales_but_stays_one_pixel() {
+        let mut i = input(2, false, 2.0);
+        i.divider_after = Some(1);
+        let l = Layout::compute(&i);
+        assert_eq!(l.divider.unwrap().height(), 1);
+        assert_eq!(l.rows[1].row.top - l.rows[0].row.bottom, 4 + 1 + 4);
     }
 }

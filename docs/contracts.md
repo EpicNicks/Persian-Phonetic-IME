@@ -26,7 +26,7 @@ Source of truth for behaviour is `PLAN.md` (read it first). This file pins the i
 | WS4+5 (stream A) | `crates/pime-tip/src/{lib.rs (except mod lines),exports.rs,service.rs,keysink.rs,composition.rs,presenter.rs,...}` + `crates/pime-tip/Cargo.toml` + `.cargo/config.toml` |
 | WS6 (stream B) | `crates/pime-tip/src/candidates.rs`, `crates/pime-candidate-ui/**` |
 | WS7 rest (stream C) | `crates/pime-tip/src/{config,langbar,reload}.rs` |
-| WS10 | `README.md`, `CLAUDE.md`, `.gitignore`, `.github/**`, `rustfmt.toml`, `docs/DESIGN.md` |
+| WS10 | `README.md`, `CLAUDE.md`, `.gitignore`, `.github/**`, `rustfmt.toml`, `docs/DESIGN.md`, `docs/contracts.md` |
 
 ## Config schema
 
@@ -56,7 +56,7 @@ Files: `data/golden/*.json`. Each: `{ "version": 1, "cases": [ ... ] }`. A case 
 
 `config` is a built-in preset name, or an object `{ "preset": "qamooscheh", "toml": "<user config toml>" }`.
 
-Key names in `keys`: a single printable character for letters, digits and punctuation (`"s"`, `"1"`, `","`, `"'"`); named keys `"Space"`, `"Enter"`, `"Escape"`, `"Backspace"`, `"Tab"`, `"Up"`, `"Down"`, `"Left"`, `"Right"`, `"ShiftSpace"`. Uppercase letters (`"S"`) mean Shift+letter.
+Key names in `keys`: a single printable character for letters, digits and punctuation (`"s"`, `"1"`, `","`, `"'"`); named keys `"Space"`, `"Enter"`, `"Escape"`, `"Backspace"`, `"Tab"`, `"Up"`, `"Down"`, `"Left"`, `"Right"`, `"ShiftSpace"`, `"ShiftTab"`, `"Delete"`, `"Home"`, `"End"`, `"CapsLock"`, `"Ctrl+x"`, `"Alt+x"` (modifier plus key `x`) and `"Numpad0"`..`"Numpad9"`. A session case may also give `last_eaten`. Uppercase letters (`"S"`) mean Shift+letter.
 
 ## Session API (pime-core, public)
 
@@ -106,7 +106,8 @@ The library does not depend on `pime-core` (only its demo does, as a dev-depende
 
 ```rust
 pub struct CandidateView { pub items: Vec<String>, pub highlighted: usize, pub show_numbers: bool,
-                           pub labels: Option<Vec<String>>, pub show_footer: bool /* "2/3" */ }
+                           pub labels: Option<Vec<String>>, pub show_footer: bool /* "2/3" */,
+                           pub size_percent: u32 /* 0 means 100; multiplies the DPI scale */ }
 impl CandidateWindow {
     pub fn new(on_event: impl FnMut(CandidateEvent) + 'static) -> Result<Self>; // Hover(i) | Click(i)
     pub fn update(&self, view: &CandidateView);           // relayout; empty list hides
@@ -118,6 +119,8 @@ impl CandidateWindow {
 pub fn unregister_class() -> bool; // optional tidy-up before DLL unload
 ```
 
+`size_percent` comes from `[options] candidate_size` (25-300, clamped by the config loader, default 50); `CandidateView::size_factor()` returns `size_percent / 100` (1.0 when 0).
+
 Hover only tints the row under the pointer; the highlight (selection) is always the session's.
 
 ## Candidate presenter (pime-tip, stream B -> stream A)
@@ -127,8 +130,9 @@ Hover only tints the row under the pointer; the highlight (selection) is always 
 ```rust
 pub fn create_presenter() -> Box<dyn CandidatePresenter>;                 // popup only
 pub fn create_presenter_with(opts: PresenterOptions) -> Box<dyn CandidatePresenter>;
-pub fn register_ui_element(thread_mgr: &ITfThreadMgr, candidate_labels: bool) -> Box<dyn CandidatePresenter>;
-pub struct PresenterOptions { pub candidate_labels: bool, pub hide_footer: bool, pub thread_mgr: Option<ITfThreadMgr> }
+pub fn register_ui_element(thread_mgr: &ITfThreadMgr, candidate_labels: bool, size_percent: u32) -> Box<dyn CandidatePresenter>;
+pub fn to_view(list: &CandidateList, candidate_labels: bool, footer: bool, size_percent: u32) -> CandidateView;
+pub struct PresenterOptions { pub candidate_labels: bool, pub hide_footer: bool, pub size_percent: u32 /* 0 = 100 */, pub thread_mgr: Option<ITfThreadMgr> }
 pub struct PopupPresenter; // impl CandidatePresenter; new(opts), set_candidate_labels(bool)
 pub fn to_physical(hwnd: HWND, r: ScreenRect) -> ScreenRect;  // GetTextExt (logical) -> physical
 pub fn caret_fallback_anchor() -> Option<ScreenRect>;         // GetGUIThreadInfo caret, physical
@@ -136,3 +140,52 @@ pub fn is_degenerate(r: ScreenRect) -> bool;                  // all-zero / inve
 ```
 
 With `thread_mgr` set, each list is also published as an `ITfCandidateListUIElement` (+ Behavior) via `ITfUIElementMgr::Begin/Update/EndUIElement` from inside `show`/`set_highlight`/`hide`; our window is drawn only when the host allows (`pbShow`, `ITfUIElement::Show`, not `TF_TMF_UIELEMENTENABLEDONLY`). Behavior `SetSelection` moves the popup/element highlight only; `Finalize` calls the `set_on_click` callback with the element's selection; `Abort` is a no-op. A degenerate anchor reuses the last anchor, then the caret fallback, then the mouse position.
+
+## Autocomplete (phase 2, D5/D20-D24)
+
+Full contract, rationale, key table and work breakdown: [`autocomplete.md`](autocomplete.md). Pinned here so consumers can code against it; `autocomplete.md` wins on detail.
+
+Ownership (streams AC-A..AC-H, exclusive; hook edits limited to the lines listed in `autocomplete.md` section 10):
+
+| ID | Owns |
+|---|---|
+| AC-A | `crates/pime-dict/**` except `src/eval.rs`, `tests/**` |
+| AC-B | `tools/wordfreq/**`, `data/dict/*` (not `eval/`), `xtask/**` except `src/eval.rs` |
+| AC-C | `crates/pime-core/**`, `data/golden/autocomplete.json` |
+| AC-D | `crates/pime-candidate-ui/**`, `crates/pime-tip/src/candidates.rs` |
+| AC-E | `crates/pime-tip/src/autocomplete.rs` + hooks in `service.rs`, `exports.rs`, `reload.rs`, `lib.rs`, `Cargo.toml` |
+| AC-F | `crates/pime-settings/**` |
+| AC-G | `installer/**` |
+| AC-H | `data/golden/dict.json`, `data/dict/eval/**`, `crates/pime-dict/src/eval.rs`, `crates/pime-dict/tests/**`, `xtask/src/eval.rs`, new `fuzz/fuzz_targets/dict_*.rs` |
+
+Dependency direction: `pime-dict -> pime-core`; `pime-tip`, `pime-settings -> pime-core, pime-dict`. `pime-core` never depends on `pime-dict`.
+
+pime-core (`pime_core::complete`, re-exported at the root):
+
+```rust
+pub trait Completer: Send + Sync {
+    fn complete(&self, prefix: &str, limit: usize, ctx: &CompleteCtx) -> Vec<Completion>;
+}
+pub struct CompleteCtx { pub use_history: bool }
+pub struct Completion { pub text: String, pub score: f32 }
+pub struct CompletionList { pub items: Vec<String>, pub highlighted: Option<usize> }
+pub struct LearnEvent { pub word: String, pub kind: LearnKind }
+pub enum LearnKind { Skipped, Ignored, Dismissed, Accepted }      // ascending priority
+pub struct ContextPolicy { pub completions: bool, pub learning: bool }
+pub fn match_key(s: &str) -> String;
+pub fn complete_with_zwnj_rule(prefix: &str, display: &str) -> Option<String>;
+pub fn completable(preedit: &str) -> bool;
+pub struct ListCompleter; impl ListCompleter { pub fn new(words: impl IntoIterator<Item = (String, f32)>) -> Self; }
+// Output gains: pub completions: Option<CompletionList>, pub learn: Vec<LearnEvent>
+// Session gains: set_completer(Option<Arc<dyn Completer>>), set_context_policy(ContextPolicy)
+```
+
+Semantics: `Output.candidates` still means alternates. Popup rows are one index space: alternates `0..n`, completions `n..n+k` (`k <= 9 - n`); `1-9` and `select_candidate(row)` use it. `Output.learn` is non-empty only on the Output that ends a composition and must be forwarded by the host to the learner (never for `would_eat`). Build `Output` literals with `..Default::default()`.
+
+pime-dict: `Dictionary::{from_bytes, load, len, info, prior, complete}`, `History::{record, record_accept, record_reject, learned, decay, merge, to_bytes, from_bytes, clear}`, `ScoreParams`, `Day`, `Runtime::{start, completer, record, status, request_save, on_clear_signal, shutdown, is_running}`, `build_from_tsv`. Errors never contain words or paths.
+
+pime-candidate-ui: `CandidateView` gains `completions: Vec<String>`, `completion_highlight: Option<usize>`, `completion_prefix_chars: usize` and `selected_row() -> Option<usize>`; `Hover/Click(i)` report the combined row. `pime_tip::candidates::to_view_full(alts, comps, preedit, candidate_labels, footer, size_percent)`; `to_view` unchanged.
+
+Files: `dict.bin` (format v1, `autocomplete.md` 3.1) next to the TIP DLLs; `%LOCALAPPDATA%\PersianPhoneticIme\history.bin` (v1, 3.4; `PIME_CONFIG_DIR` overrides). Clearing = deleting `history.bin*` and signalling `Local\PersianPhoneticIme.ConfigChanged`.
+
+Golden additions: session cases may carry `completer` (`{"words": [[text, score], ...]}` -> `ListCompleter`), `policy`, `completions_after_last`, `completion_highlight_after_last`, `learn` (`[[kind, word], ...]`, kinds `accepted|skipped|ignored|dismissed`) in `data/golden/autocomplete.json`; dictionary cases of type `complete` and `build` live in `data/golden/dict.json`. Formats: `autocomplete.md` section 8.

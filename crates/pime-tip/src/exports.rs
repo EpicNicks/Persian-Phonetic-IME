@@ -23,7 +23,8 @@ static OBJECTS: AtomicIsize = AtomicIsize::new(0);
 static LOCKS: AtomicIsize = AtomicIsize::new(0);
 static HOOK: Once = Once::new();
 
-/// Counts live COM objects for `DllCanUnloadNow`. Embed one in every `#[implement]` struct.
+/// Counts live COM objects for `DllCanUnloadNow`. Embed one in every `#[implement]` struct
+/// (pime-candidate-ui counts its own UIA providers: `pime_candidate_ui::live_com_objects`).
 pub(crate) struct ObjToken(());
 impl ObjToken {
     pub(crate) fn new() -> Self {
@@ -102,10 +103,13 @@ pub unsafe extern "system" fn DllGetClassObject(
 #[no_mangle]
 pub extern "system" fn DllCanUnloadNow() -> HRESULT {
     guard_hr(|| {
-        // A pending config-watch thread-pool callback into an unloaded DLL would crash the host.
+        // A pending config-watch thread-pool callback into an unloaded DLL would crash the host,
+        // and so would a late Release on a UIA provider a screen reader still holds.
         if OBJECTS.load(Ordering::SeqCst) == 0
             && LOCKS.load(Ordering::SeqCst) == 0
+            && pime_candidate_ui::live_com_objects() == 0
             && !crate::reload::is_running()
+            && !crate::autocomplete::is_running()
         {
             S_OK
         } else {

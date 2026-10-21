@@ -5,6 +5,7 @@
 #![allow(dead_code)]
 
 mod anchor; // A
+pub mod autocomplete; // AC-E
 pub mod candidates; // B
 pub mod composition; // A
 pub mod config; // C

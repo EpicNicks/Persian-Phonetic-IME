@@ -56,10 +56,13 @@ This signs every staged DLL and EXE before packaging, then signs the MSI, using 
   pime-setup.x64.exe                 registers the x64 DLL; per-user enable
   pime-setup.x86.exe                 registers the x86 DLL
   pime-settings.exe                  settings app (WS7)
+  dict.bin                           autocomplete dictionary, shared by both DLLs
+  THIRD-PARTY-NOTICES.txt            from data\dict\NOTICE.txt
+  licenses\CC-BY-SA-4.0.txt          from data\dict\CC-BY-SA-4.0.txt
 Start menu: "Persian Phonetic IME Settings", "Add Persian Phonetic keyboard for me"
 ```
 
-Presets are compiled into the DLL, so the package installs no data files. The MSI needs 64-bit Windows 10 or later; 32-bit Windows is not supported in v1.
+Presets are compiled into the DLL. The `Dictionary` component installs `dict.bin` and the notices next to the DLLs. `build.ps1` builds `dict.bin` with `cargo run -p xtask --release -- build-dict --input <tsv>... --out <stage>\dict.bin` (inputs: `fa-wordfreq.tsv` or `wordfreq-fa.tsv`, plus `extra.tsv`, whichever exist in `data\dict`). It fails if `dict.bin` is missing or empty, or if `NOTICE.txt` or `CC-BY-SA-4.0.txt` is missing. `dict.bin` lives in the versioned folder: an upgrade installs the new one beside the old, and the old one goes with the old version (at reboot if a host app still maps it). If `dict.bin` is absent or unreadable the TIP still types; completion is silent. The MSI needs 64-bit Windows 10 or later; 32-bit Windows is not supported in v1.
 
 ## What the MSI does
 
@@ -88,7 +91,7 @@ Old DLLs that running apps still have loaded are deleted at reboot. Windows Inst
 
 Uninstall disables the IME for the uninstalling user, unregisters both DLLs, and removes the files and the Start menu shortcuts. The empty product folder is removed. In other users' accounts the language-list entry stays, but it is inert once the profile is unregistered.
 
-User data is left alone: `%APPDATA%\PersianPhoneticIme` and `HKCU\Software\PersianPhoneticIme`.
+User data is left alone: `%APPDATA%\PersianPhoneticIme` (config and the per-user `history.bin`, decision Q8) and `HKCU\Software\PersianPhoneticIme`. `dict.bin` and the notices are removed with the other files.
 
 ## Per-user enable (decision)
 
@@ -153,3 +156,6 @@ Run this in Windows Sandbox (fast, Windows 10) and in a Hyper-V VM with a checkp
 | 10 | Silent install as SYSTEM (`psexec -s msiexec /i ... /qn ENABLE_ALL_USERS=1`): no ILOT runs as SYSTEM, and Active Setup enables users at logon | |
 | 11 | Signed build (`-CertThumbprint`): signatures valid on the DLLs, EXEs and MSI; behaviour in Settings search | |
 | 12 | No Application Error events naming PersianPhoneticIme or pime-setup | |
+| 13 | Install, then delete `dict.bin` from the version folder (or build an MSI without it): typing works in Notepad, completion is silent, no Application Error events | |
+| 14 | Upgrade while a host app (Notepad) has the old `dict.bin` loaded: upgrade completes, no prompt, new apps load the new dictionary, the old folder goes at reboot. `history.bin` is untouched | |
+| 15 | Uninstall leaves `%APPDATA%\PersianPhoneticIme\history.bin` and the config in place; `dict.bin`, `THIRD-PARTY-NOTICES.txt` and `licenses\` are gone | |

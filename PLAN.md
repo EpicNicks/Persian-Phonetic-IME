@@ -260,7 +260,7 @@ Defaults are ASSUMED so work can proceed; flag work that depends on a changed an
 | D2 | Canonical map/config in this repo, default preset imported once from Qamooscheh | yes | DECIDED |
 | D3 | Lone `c` | `c = "none"` in the default preset (visible pending `c`); `"k"` / `"s"` available | CONFIG |
 | D4 | Enter | `commit` (Google IME style); `commit-and-pass` option | CONFIG |
-| D5 | Autocomplete/predictions | NOT in v1; optional phase 2 (`[autocomplete]`, off). v1 candidate list = alternates of the last ambiguous letter, no dictionary | DECIDED for v1 |
+| D5 | Autocomplete/predictions | Approved (user, 2026-10-21) as a toggleable option (`[autocomplete] enabled`); v1 candidate list (alternates of the last ambiguous letter) is unchanged when it is off. See D20-D24 | DECIDED |
 | D6 | Digits/punctuation | Persian digits on, set per 2.2, `1-9` selects candidates | OPEN |
 | D7 | On/off hotkey | unbound by default, configurable | OPEN |
 | D8 | Product name, signing, distribution | TBD (GitHub Releases) | OPEN |
@@ -270,11 +270,16 @@ Defaults are ASSUMED so work can proceed; flag work that depends on a changed an
 | D12 | Extra scripts (e.g. romaji/kana, other languages) | out of scope | DECIDED |
 | D13 | Learner extras (labels, ezafe/vowel marks) | labels optional; marks out of v1 | OPEN |
 | D14 | Space | commit what is shown (`preedit`); `top-candidate` available | CONFIG |
-| D15 | Dictionary source and licence (phase 2 only) | unknown; needs a freely licensed Persian frequency list | DEFERRED |
+| D15 | Dictionary source and licence | `wordfreq` Persian data (user's choice); licence and attribution to be verified by the data stream before shipping | DECIDED (licence check pending) |
 | D16 | Esc | closes list, then cancels composition (Google style) | DECIDED (user: fine for now) |
 | D17 | Hebrew-style `ch` | dropped: `ch` is plain چ, `kh` is خ | DROPPED |
-| D18 | Vowel-optional matching rules (phase 2 only) | tune against the evaluation set | DEFERRED |
+| D18 | Vowel-optional matching rules | DROPPED: the IME is purely phonetic and users spell the letters that appear in the Persian word (user); completion matches the Persian preedit prefix, no vowel skipping | DROPPED |
 | D19 | Cursor movement inside the preedit | out of v1 (Left/Right commit and pass through) | OPEN |
+| D20 | What autocomplete matches on | The current working output (the Persian preedit of the word being typed), as a prefix of dictionary words. No Latin-side matching; the phonetic map is considered solved (user) | DECIDED |
+| D21 | Adaptive ranking ("fuzzy" scoring) | Soft score = wordfreq prior + learned boost from accepted completions - penalty from rejections (shown but ignored or dismissed). Fuzzy here means graded scoring, not edit-distance matching | DECIDED (interpretation to confirm) |
+| D22 | ZWNJ in completions | Offer the form with ZWNJ unless the user has already typed past the ZWNJ position without one; then complete without it | DECIDED |
+| D23 | Arabic letter variants | Never emitted; source data is normalised to ی ک ه at build time and Arabic-only forms are dropped | DECIDED |
+| D24 | Learning storage | Local only, `learning` toggle, clear-history command, never recorded in disabled/password contexts, never logged, no network. This is the one sanctioned exception to "never persist typed content" in CLAUDE.md, limited to accepted/rejected dictionary words and their counts | DECIDED (user) |
 | Loc | Repo location | this folder | DECIDED |
 
 ## 8. Workstreams (parallelisable)
@@ -310,15 +315,15 @@ Interface-first tip: WS2 lands `pime-core` public types (`KeyEvent`, `Output`, `
 | WS0 | done | wave-1 agent | 228 golden cases, presets, schema doc; `python data/validate.py` passes. Assumptions listed in case `notes` |
 | WS1 | in progress (code done; awaiting VM run) | WS1 spike session | Spike builds x64+x86, static CRT, tests pass; nothing registered on host. Recommendation: continue Rust shell pending VM checklist in docs/spike.md section 6 |
 | WS2 | done | WS2 agent | config + friendly issues, renderer, Session; 228 golden cases pass; seeded random robustness tests (no cargo-fuzz) |
-| WS3 | not started | | |
+| WS3 | in progress | autocomplete build (2026-10-21) | pime-dict, xtask, data/dict, core/UI/TIP/settings/installer wiring landed per docs/autocomplete.md; autocomplete defaults off; VM verification and eval gate (Q1) pending |
 | WS4 | in progress (code done; awaiting sandbox run) | stream A | crates/pime-tip: exports, registration (pime-ids GUIDs), kill switch, sinks; COM tests in-process only; x64+x86 release, dumpbin OK (exports, no CRT imports, CFG); sandbox package crates/pime-tip/dist |
 | WS5 | in progress (code done; awaiting sandbox run) | stream A | Session -> pure EditPlan (golden replay through a simulated document), edit sessions, display attrs, ZWNJ read-back, popup/langbar/config wiring; checklist in crates/pime-tip/README.md |
 | WS6 | in progress (stream B part done; awaiting stream A wiring + VM run) | stream B agent | popup restyled, prefer_above, PopupPresenter + UI element in pime-tip/candidates.rs; demo drives a real Session (`--smoke` passes). Visuals, UIA, UI-less hosts unverified |
 | WS6a | done (compile + unit tests only) | wave-1 agent | demo: target-ws6adebugexamplesdemo.exe; visuals, UIA, DPI unverified |
-| WS7 | in progress (host-independent part done) | WS7 agent | `pime-settings`: --check/--reset/--print-default/--write-errors/--open, window (error page, options form, try typing), reload event; 51 tests. Langbar badge, toast and the TIP's receiving side wait on WS4 |
+| WS7 | in progress (host-independent part done) | WS7 agent | `pime-settings`: --check/--reset/--print-default/--write-errors/--open, window (error page, options form, try typing), reload event; 50 tests (grep count of #[test] in crates/pime-settings). Toast (PLAN 3.4) not implemented; see docs/DESIGN.md "Known drift" |
 | WS8 | in progress (built; awaiting VM run + real TIP DLLs) | WS8 agent | pime-setup (19 tests, x64+x86, /status verified read-only); WiX v5 placeholder MSI built + ICE-validated, never installed; checklist in installer/README.md |
 | WS9 | not started | | |
-| WS10 | not started | | |
+| WS10 | in progress | WS10 agent | README, CLAUDE.md, DESIGN.md, contracts.md refreshed for pime-tip/settings/setup; CI at .github/workflows/ci.yml (fmt, clippy, test on windows-latest); LICENSE file still missing |
 
 ## 10. Risks
 

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/pime-core", "crates/pime-candidate-ui", "crates/pime-settings", "crates/pime-setup", "crates/pime-ids", "crates/pime-tip"]
+members = ["crates/pime-core", "crates/pime-candidate-ui", "crates/pime-settings", "crates/pime-setup", "crates/pime-ids", "crates/pime-tip", "crates/pime-dict", "xtask"]
 exclude = ["spike"]
 
 [workspace.package]

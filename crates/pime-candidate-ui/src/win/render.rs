@@ -2,7 +2,7 @@
 //! target. The render target runs at 96 dpi so all coordinates are physical pixels.
 
 use windows::core::BOOL;
-use windows::core::{w, Result, PCWSTR};
+use windows::core::{w, IUnknown, Interface, Result, PCWSTR};
 use windows::Win32::Foundation::{HWND, RECT};
 use windows::Win32::Graphics::Direct2D::Common::{
     D2D1_ALPHA_MODE_UNKNOWN, D2D1_COLOR_F, D2D1_PIXEL_FORMAT, D2D_RECT_F, D2D_SIZE_U,
@@ -21,7 +21,7 @@ use windows::Win32::Graphics::DirectWrite::{
     DWRITE_PARAGRAPH_ALIGNMENT_CENTER, DWRITE_READING_DIRECTION,
     DWRITE_READING_DIRECTION_LEFT_TO_RIGHT, DWRITE_READING_DIRECTION_RIGHT_TO_LEFT,
     DWRITE_TEXT_ALIGNMENT, DWRITE_TEXT_ALIGNMENT_CENTER, DWRITE_TEXT_ALIGNMENT_LEADING,
-    DWRITE_TEXT_METRICS, DWRITE_WORD_WRAPPING_NO_WRAP,
+    DWRITE_TEXT_METRICS, DWRITE_TEXT_RANGE, DWRITE_WORD_WRAPPING_NO_WRAP,
 };
 use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_UNKNOWN;
 use windows::Win32::UI::WindowsAndMessaging::GetClientRect;
@@ -228,11 +228,9 @@ impl Renderer {
                 }
             }
         };
-        let n = view.visible_len();
-        let g = (0..n)
-            .map(|i| width(&view.items[i], &f.glyph))
-            .fold(0.0, f32::max);
-        let l = (0..n)
+        // One column width for both sections.
+        let g = view.rows().map(|t| width(t, &f.glyph)).fold(0.0, f32::max);
+        let l = (0..view.alt_len())
             .map(|i| width(view.label(i), &f.label))
             .fold(0.0, f32::max);
         (g, l)
@@ -283,7 +281,7 @@ impl Renderer {
         hwnd: HWND,
         layout: &Layout,
         view: &CandidateView,
-        highlighted: usize,
+        highlighted: Option<usize>,
         hot: Option<usize>,
         pal: &Palette,
     ) -> Result<()> {
@@ -318,7 +316,7 @@ impl Renderer {
             };
 
             for (i, row) in layout.rows.iter().enumerate() {
-                let hi = i == highlighted;
+                let hi = highlighted == Some(i);
                 let shape = rounded(row.row, radius);
                 if hi {
                     rt.FillRoundedRectangle(&shape, &b_hi);
@@ -339,13 +337,25 @@ impl Renderer {
                 if row.number.width() > 0 {
                     draw(&crate::view::row_number(i), &formats.number, row.number, nb);
                 }
-                draw(&view.items[i], &formats.glyph, row.glyph, tb);
+                let text = view.row_text(i);
+                let dim = view.dim_prefix_utf16(i);
+                // The selected row keeps one colour: the secondary colour can lack contrast
+                // on the highlight fill (high contrast in particular).
+                if dim > 0 && !hi {
+                    self.draw_dimmed(&rt, text, dim, &formats.glyph, row.glyph, (tb, &b_label));
+                } else {
+                    draw(text, &formats.glyph, row.glyph, tb);
+                }
                 if let Some(lr) = row.label {
                     let l = view.label(i);
                     if !l.is_empty() {
                         draw(l, &formats.label, lr, lb);
                     }
                 }
+            }
+
+            if let Some(d) = layout.divider {
+                rt.FillRectangle(&rect_f(d), &b_border);
             }
 
             if let (Some(fr), Some(text)) = (layout.footer, view.footer_text()) {
@@ -377,6 +387,44 @@ impl Renderer {
             return Err(e);
         }
         Ok(())
+    }
+
+    /// Draw `text` in `primary` with its first `dim_units` UTF-16 units in `secondary`. One
+    /// text layout with a drawing effect on the range, so the Arabic-script joining across
+    /// the boundary is shaped exactly as in a single run.
+    fn draw_dimmed(
+        &self,
+        rt: &ID2D1HwndRenderTarget,
+        text: &str,
+        dim_units: usize,
+        fmt: &IDWriteTextFormat,
+        r: Rect,
+        (primary, secondary): (&ID2D1SolidColorBrush, &ID2D1SolidColorBrush),
+    ) {
+        let w = wide(text);
+        // SAFETY: valid slice, format and brushes; called between BeginDraw/EndDraw.
+        unsafe {
+            let Ok(layout) = self.dwrite.CreateTextLayout(
+                &w,
+                fmt,
+                r.width().max(1) as f32,
+                r.height().max(1) as f32,
+            ) else {
+                return;
+            };
+            if let Ok(effect) = secondary.cast::<IUnknown>() {
+                let range = DWRITE_TEXT_RANGE {
+                    startPosition: 0,
+                    length: dim_units.min(w.len()) as u32,
+                };
+                let _ = layout.SetDrawingEffect(&effect, range);
+            }
+            // `DrawTextLayout` takes a `windows_numerics::Vector2`, which `windows` does not
+            // re-export; it is `#[repr(C)] { X: f32, Y: f32 }` and transmute checks the size.
+            #[allow(clippy::missing_transmute_annotations)] // the type cannot be named here
+            let origin = std::mem::transmute::<[f32; 2], _>([r.left as f32, r.top as f32]);
+            rt.DrawTextLayout(origin, &layout, primary, D2D1_DRAW_TEXT_OPTIONS_NONE);
+        }
     }
 
     pub fn drop_target(&mut self) {

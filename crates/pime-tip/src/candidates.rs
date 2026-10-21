@@ -14,11 +14,10 @@
 //! the last presenter is dropped (e.g. from the last `Deactivate`), never from `DllMain`.
 
 use std::cell::{Cell, RefCell};
-use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::rc::{Rc, Weak};
 
 use pime_candidate_ui::{CandidateEvent, CandidateView, CandidateWindow, Rect};
-use pime_core::CandidateList;
+use pime_core::{CandidateList, CompletionList};
 use windows::Win32::Foundation::{E_FAIL, E_INVALIDARG, HWND, POINT};
 use windows::Win32::Graphics::Gdi::ClientToScreen;
 use windows::Win32::System::Threading::GetCurrentThreadId;
@@ -33,6 +32,7 @@ use windows::Win32::UI::TextServices::{
 use windows::Win32::UI::WindowsAndMessaging::{GetCursorPos, GetGUIThreadInfo, GUITHREADINFO};
 use windows_core::{implement, Error, Result, BOOL, BSTR, GUID};
 
+use crate::exports::{guard, ObjToken};
 use crate::presenter::{CandidatePresenter, PreferredSide, ScreenRect};
 
 /// `ITfUIElement::GetGUID` of our candidate list (identifies the element kind to hosts).
@@ -107,7 +107,39 @@ pub fn to_view(
         }),
         show_footer: footer,
         size_percent,
+        ..Default::default()
     }
+}
+
+/// Map the engine's alternates (`Output.candidates`) and completions (`Output.completions`)
+/// to one two-section view: alternates first, completions below the divider, one row index
+/// space. `preedit` is the typed Persian text; it is drawn dimmed at the start of each
+/// completion (only if every completion starts with it, which the session guarantees).
+/// The popup is shown when either section has rows (`CandidateView::visible_len`).
+pub fn to_view_full(
+    alts: Option<&CandidateList>,
+    comps: Option<&CompletionList>,
+    preedit: &str,
+    candidate_labels: bool,
+    footer: bool,
+    size_percent: u32,
+) -> CandidateView {
+    let mut v = match alts {
+        Some(list) => to_view(list, candidate_labels, footer, size_percent),
+        None => CandidateView {
+            show_numbers: true,
+            show_footer: footer,
+            size_percent,
+            ..Default::default()
+        },
+    };
+    if let Some(c) = comps {
+        v.completions = c.items.clone();
+        v.completion_highlight = c.highlighted;
+        let typed = !preedit.is_empty() && c.items.iter().all(|w| w.starts_with(preedit));
+        v.completion_prefix_chars = if typed { preedit.chars().count() } else { 0 };
+    }
+    v
 }
 
 pub fn to_rect(r: ScreenRect) -> Rect {
@@ -266,15 +298,20 @@ impl Core {
         }
     }
 
-    fn set_highlight(&self, index: usize) {
+    /// Move the selection to combined row `row` (`None`: no completion highlighted).
+    fn set_selected_row(&self, row: Option<usize>) {
         if let Ok(mut v) = self.view.try_borrow_mut() {
-            v.highlighted = index;
+            v.select_row(row);
         }
         if let Ok(w) = self.window.try_borrow() {
             if let Some(w) = w.as_ref() {
-                w.set_highlight(index);
+                w.set_selected_row(row);
             }
         }
+    }
+
+    fn selected_row(&self) -> Option<usize> {
+        self.view.try_borrow().ok().and_then(|v| v.selected_row())
     }
 }
 
@@ -310,10 +347,7 @@ impl PopupPresenter {
         let ui = opts.thread_mgr.and_then(|tm| {
             let mgr: ITfUIElementMgr = windows_core::Interface::cast(&tm).ok()?;
             let state = Rc::new(ElementState::new(Rc::downgrade(&core)));
-            let element: ITfUIElement = CandidateUiElement {
-                state: state.clone(),
-            }
-            .into();
+            let element: ITfUIElement = CandidateUiElement::new(state.clone()).into();
             Some(UiLink {
                 thread_mgr: tm,
                 mgr,
@@ -359,10 +393,11 @@ impl PopupPresenter {
     }
 
     /// Begin or update the UI element; returns whether our own window may be drawn.
-    fn publish(&mut self, list: &CandidateList) -> bool {
+    /// `rows` are the combined rows (TSF has no sections); `selection` the selected row.
+    fn publish(&mut self, rows: &[String], selection: usize) -> bool {
         let ui_only = self.ui_only_mode();
         let Some(ui) = &mut self.ui else { return true };
-        ui.state.set_items(&list.items, list.highlighted);
+        ui.state.set_items(rows, selection);
         match ui.id {
             Some(id) => {
                 // SAFETY: plain TSF call; the element only touches its own cells.
@@ -396,11 +431,55 @@ impl PopupPresenter {
             *ui.state.doc_mgr.borrow_mut() = None;
         }
     }
-}
 
-impl CandidatePresenter for PopupPresenter {
-    fn show(&mut self, list: &CandidateList, anchor: ScreenRect, side: PreferredSide) {
-        if list.items.is_empty() {
+    /// Show or refresh both sections: alternates (`Output.candidates`) and completions
+    /// (`Output.completions`), `preedit` = `Output.preedit`. Hides when neither has rows.
+    /// The trait's `set_highlight`/click indices are combined rows.
+    pub fn show_full(
+        &mut self,
+        alts: Option<&CandidateList>,
+        comps: Option<&CompletionList>,
+        preedit: &str,
+        anchor: ScreenRect,
+        side: PreferredSide,
+    ) {
+        let view = to_view_full(
+            alts,
+            comps,
+            preedit,
+            self.labels,
+            self.footer,
+            self.size_percent,
+        );
+        self.show_view(view, anchor, side);
+    }
+
+    /// Move the selection to combined row `row`; `None` clears the completion highlight
+    /// (the alternates' highlight, if any, shows again).
+    pub fn set_selected_row(&mut self, row: Option<usize>) {
+        self.core.set_selected_row(row);
+        self.sync_ui_selection();
+    }
+
+    fn sync_ui_selection(&mut self) {
+        let sel = self.core.selected_row().unwrap_or(0) as u32;
+        if let Some(ui) = &self.ui {
+            if ui.state.selection.get() == sel {
+                return;
+            }
+            ui.state.selection.set(sel);
+            ui.state
+                .flags
+                .set(ui.state.flags.get() | TF_CLUIE_SELECTION);
+            if let Some(id) = ui.id {
+                // SAFETY: plain TSF call.
+                let _ = unsafe { ui.mgr.UpdateUIElement(id) };
+            }
+        }
+    }
+
+    fn show_view(&mut self, view: CandidateView, anchor: ScreenRect, side: PreferredSide) {
+        if view.visible_len() == 0 {
             self.hide();
             return;
         }
@@ -411,28 +490,30 @@ impl CandidatePresenter for PopupPresenter {
         } else {
             to_rect(caret_fallback_anchor().unwrap_or_else(cursor_anchor))
         };
-        *self.core.view.borrow_mut() = to_view(list, self.labels, self.footer, self.size_percent);
+        let rows: Vec<String> = view.rows().map(str::to_owned).collect();
+        // No selection (completions only, none highlighted) is reported as row 0: TSF has no
+        // "nothing selected", and row 0 is what Space accepts in that state.
+        let selection = view.highlight();
+        *self.core.view.borrow_mut() = view;
         self.core
             .anchor
             .set(Some((anchor, side == PreferredSide::Above)));
-        let allowed = self.publish(list);
+        let allowed = self.publish(&rows, selection);
         self.core.host_allows.set(allowed);
         self.core.active.set(true);
         self.core.sync_window();
     }
+}
 
+impl CandidatePresenter for PopupPresenter {
+    fn show(&mut self, list: &CandidateList, anchor: ScreenRect, side: PreferredSide) {
+        let view = to_view(list, self.labels, self.footer, self.size_percent);
+        self.show_view(view, anchor, side);
+    }
+
+    /// `index` is a combined row (alternates, then completions).
     fn set_highlight(&mut self, index: usize) {
-        self.core.set_highlight(index);
-        if let Some(ui) = &self.ui {
-            ui.state.selection.set(index as u32);
-            ui.state
-                .flags
-                .set(ui.state.flags.get() | TF_CLUIE_SELECTION);
-            if let Some(id) = ui.id {
-                // SAFETY: plain TSF call.
-                let _ = unsafe { ui.mgr.UpdateUIElement(id) };
-            }
-        }
+        self.set_selected_row(Some(index));
     }
 
     fn hide(&mut self) {
@@ -500,11 +581,6 @@ impl ElementState {
     }
 }
 
-/// COM entry points must never unwind into the host.
-fn guard<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
-    catch_unwind(AssertUnwindSafe(f)).unwrap_or_else(|_| Err(E_FAIL.into()))
-}
-
 #[implement(
     ITfCandidateListUIElementBehavior,
     ITfCandidateListUIElement,
@@ -512,6 +588,16 @@ fn guard<T>(f: impl FnOnce() -> Result<T>) -> Result<T> {
 )]
 struct CandidateUiElement {
     state: Rc<ElementState>,
+    _tok: ObjToken,
+}
+
+impl CandidateUiElement {
+    fn new(state: Rc<ElementState>) -> Self {
+        Self {
+            state,
+            _tok: ObjToken::new(),
+        }
+    }
 }
 
 impl ITfUIElement_Impl for CandidateUiElement_Impl {
@@ -520,7 +606,7 @@ impl ITfUIElement_Impl for CandidateUiElement_Impl {
     }
 
     fn GetGUID(&self) -> Result<GUID> {
-        Ok(GUID_CANDIDATE_UI_ELEMENT)
+        guard(|| Ok(GUID_CANDIDATE_UI_ELEMENT))
     }
 
     fn Show(&self, bshow: BOOL) -> Result<()> {
@@ -604,11 +690,11 @@ impl ITfCandidateListUIElement_Impl for CandidateUiElement_Impl {
     }
 
     fn SetPageIndex(&self, _pindex: *const u32, _upagecnt: u32) -> Result<()> {
-        Ok(())
+        guard(|| Ok(()))
     }
 
     fn GetCurrentPage(&self) -> Result<u32> {
-        Ok(0)
+        guard(|| Ok(0))
     }
 }
 
@@ -620,7 +706,7 @@ impl ITfCandidateListUIElementBehavior_Impl for CandidateUiElement_Impl {
             }
             self.state.selection.set(nindex);
             if let Some(core) = self.state.core.upgrade() {
-                core.set_highlight(nindex as usize);
+                core.set_selected_row(Some(nindex as usize));
             }
             Ok(())
         })
@@ -643,7 +729,7 @@ impl ITfCandidateListUIElementBehavior_Impl for CandidateUiElement_Impl {
     /// pinned trait has no cancel callback, so this is a no-op (the list stays until the
     /// next key or commit).
     fn Abort(&self) -> Result<()> {
-        Ok(())
+        guard(|| Ok(()))
     }
 }
 
@@ -651,6 +737,13 @@ impl ITfCandidateListUIElementBehavior_Impl for CandidateUiElement_Impl {
 mod tests {
     use super::*;
     use pime_core::CandidateKind;
+
+    fn comps(items: &[&str], highlighted: Option<usize>) -> CompletionList {
+        CompletionList {
+            items: items.iter().map(|s| (*s).to_owned()).collect(),
+            highlighted,
+        }
+    }
 
     fn list(items: &[&str], highlighted: usize) -> CandidateList {
         CandidateList {
@@ -674,6 +767,58 @@ mod tests {
         assert_eq!(labels[1], "sad");
         assert_eq!(labels[2], "", "unknown candidates get no label");
         assert!(!v.show_footer);
+        assert!(v.completions.is_empty());
+    }
+
+    #[test]
+    fn full_view_mapping() {
+        let alts = list(&["س", "ص"], 1);
+        let c = comps(&["سلام", "سلامت"], None);
+        let v = to_view_full(Some(&alts), Some(&c), "س", true, true, 80);
+        assert_eq!(v.items, ["س", "ص"]);
+        assert_eq!(v.completions, ["سلام", "سلامت"]);
+        assert_eq!(v.completion_prefix_chars, 1);
+        assert_eq!(v.visible_len(), 4);
+        assert_eq!(v.selected_row(), Some(1));
+        assert_eq!(v.label(1), "sad");
+        assert_eq!(v.label(2), "");
+        assert_eq!(v.footer_text().as_deref(), Some("2/4"));
+        assert_eq!(v.size_percent, 80);
+
+        let c = comps(&["سلام", "سلامت"], Some(1));
+        let v = to_view_full(Some(&alts), Some(&c), "س", false, true, 0);
+        assert_eq!(v.selected_row(), Some(3));
+        assert_eq!(v.footer_text().as_deref(), Some("4/4"));
+
+        // Completions only (no ambiguous last letter).
+        let v = to_view_full(None, Some(&c), "سل", false, false, 0);
+        assert!(v.items.is_empty() && v.show_numbers);
+        assert_eq!(v.visible_len(), 2);
+        assert_eq!(v.completion_prefix_chars, 2);
+        assert_eq!(v.selected_row(), Some(1));
+        let v = to_view_full(None, Some(&comps(&["سلام"], None)), "سل", false, true, 0);
+        assert_eq!(v.selected_row(), None);
+        assert_eq!(v.footer_text().as_deref(), Some("-/1"));
+
+        // Only alternates: identical to `to_view`.
+        assert_eq!(
+            to_view_full(Some(&alts), None, "س", true, true, 0),
+            to_view(&alts, true, true, 0)
+        );
+        // Nothing: an empty view (the popup hides).
+        assert_eq!(
+            to_view_full(None, None, "", false, true, 0).visible_len(),
+            0
+        );
+        // A completion not starting with the preedit disables dimming.
+        let odd = comps(&["سلام", "ثابت"], None);
+        let v = to_view_full(None, Some(&odd), "س", false, true, 0);
+        assert_eq!(v.completion_prefix_chars, 0);
+        // Truncated to 9 rows, alternates first.
+        let many = comps(&["a", "b", "c", "d", "e", "f", "g", "h", "i"], Some(8));
+        let v = to_view_full(Some(&alts), Some(&many), "", false, true, 0);
+        assert_eq!(v.visible_len(), 9);
+        assert_eq!(v.selected_row(), Some(8));
     }
 
     #[test]
@@ -713,10 +858,7 @@ mod tests {
     ) {
         let p = PopupPresenter::new(PresenterOptions::default());
         let state = Rc::new(ElementState::new(Rc::downgrade(&p.core)));
-        let el: ITfCandidateListUIElementBehavior = CandidateUiElement {
-            state: state.clone(),
-        }
-        .into();
+        let el: ITfCandidateListUIElementBehavior = CandidateUiElement::new(state.clone()).into();
         (el, state, p.core.clone())
     }
 
@@ -749,6 +891,7 @@ mod tests {
     fn ui_element_behavior_selects_and_finalizes() {
         let (el, state, core) = element();
         state.set_items(&["ت".into(), "ط".into()], 0);
+        *core.view.borrow_mut() = to_view(&list(&["ت", "ط"], 0), false, true, 0);
         let picked = Rc::new(Cell::new(None));
         let p2 = picked.clone();
         *core.on_click.borrow_mut() = Some(Box::new(move |i| p2.set(Some(i))));
@@ -762,6 +905,50 @@ mod tests {
         }
         assert_eq!(picked.get(), Some(1));
         assert_eq!(core.view.borrow().highlighted, 1);
+    }
+
+    #[test]
+    fn ui_element_spans_both_sections() {
+        let (el, state, core) = element();
+        let v = to_view_full(
+            Some(&list(&["س", "ص"], 0)),
+            Some(&comps(&["سلام", "سلامت"], None)),
+            "س",
+            false,
+            true,
+            0,
+        );
+        let rows: Vec<String> = v.rows().map(str::to_owned).collect();
+        state.set_items(&rows, v.highlight());
+        *core.view.borrow_mut() = v;
+        let picked = Rc::new(Cell::new(None));
+        let p2 = picked.clone();
+        *core.on_click.borrow_mut() = Some(Box::new(move |i| p2.set(Some(i))));
+        // SAFETY: calls on our own COM object.
+        unsafe {
+            assert_eq!(el.GetCount().unwrap(), 4);
+            assert_eq!(el.GetString(3).unwrap().to_string(), "سلامت");
+            el.SetSelection(3).unwrap();
+            assert_eq!(el.GetSelection().unwrap(), 3);
+            el.Finalize().unwrap();
+        }
+        assert_eq!(picked.get(), Some(3), "Finalize reports the combined row");
+        let v = core.view.borrow();
+        assert_eq!(
+            (v.completion_highlight, v.selected_row()),
+            (Some(1), Some(3))
+        );
+    }
+
+    #[test]
+    fn live_ui_element_blocks_dll_unload() {
+        let (el, _state, _core) = element();
+        // Whatever other tests hold, our live element alone must keep the DLL loaded.
+        assert_eq!(
+            crate::exports::DllCanUnloadNow(),
+            windows::Win32::Foundation::S_FALSE
+        );
+        drop(el);
     }
 
     /// Creates a real (briefly visible) popup on this thread, then destroys it.
@@ -793,5 +980,27 @@ mod tests {
         p.hide();
         assert!(!p.is_window_visible());
         assert!(p.has_window(), "window is reused, not destroyed");
+
+        // Completions only, then both sections, then neither.
+        let c = comps(&["سلام", "سلامت"], None);
+        p.show_full(None, Some(&c), "س", anchor, PreferredSide::Below);
+        assert!(p.is_window_visible(), "completions alone show the popup");
+        assert_eq!(p.core.selected_row(), None);
+        p.set_selected_row(Some(1));
+        assert_eq!(p.core.view.borrow().completion_highlight, Some(1));
+        p.show_full(
+            Some(&list(&["س", "ص"], 0)),
+            Some(&c),
+            "س",
+            anchor,
+            PreferredSide::Below,
+        );
+        assert_eq!(p.core.view.borrow().visible_len(), 4);
+        p.set_highlight(3);
+        assert_eq!(p.core.selected_row(), Some(3));
+        p.set_selected_row(None);
+        assert_eq!(p.core.selected_row(), Some(0));
+        p.show_full(None, None, "", anchor, PreferredSide::Below);
+        assert!(!p.is_window_visible(), "no rows hides");
     }
 }

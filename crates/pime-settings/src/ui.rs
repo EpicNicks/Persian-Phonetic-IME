@@ -7,14 +7,19 @@
 //! `Rc` cloned out of the thread-local and no `RefCell` borrow is ever held across a
 //! Win32 call. Every window procedure body runs inside `catch_unwind`.
 
-use pime_core::ResolvedConfig;
+use pime_core::{OptionValue, ResolvedConfig};
+use pime_dict::Runtime;
 use pime_settings::backup::{ensure_exists, reset_config, Timestamp};
-use pime_settings::edit::{save_setting, Section};
+use pime_settings::dictionary::{preview_completer, start_preview_runtime};
+use pime_settings::edit::save_setting;
+use pime_settings::learned::{
+    clear_history, count_text, learned_count, CHECK_ROWS, NUMBER_ROWS, PRIVACY_LINE, SECTION,
+};
 use pime_settings::options::FORM_OPTIONS;
 use pime_settings::paths::Paths;
 use pime_settings::reload::signal_config_changed;
 use pime_settings::report::{write_errors_file, Check, FileState};
-use pime_settings::try_typing::preview;
+use pime_settings::try_typing::preview_with;
 use std::cell::RefCell;
 use std::ffi::c_void;
 use std::path::Path;
@@ -40,13 +45,14 @@ use windows::Win32::UI::WindowsAndMessaging::{
     AdjustWindowRectEx, CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW,
     GetWindowTextLengthW, GetWindowTextW, IsDialogMessageW, LoadCursorW, LoadIconW, MessageBoxW,
     PostQuitMessage, RegisterClassExW, SendMessageW, SetWindowPos, SetWindowTextW, ShowWindow,
-    TranslateMessage, BN_CLICKED, BS_PUSHBUTTON, CBN_SELCHANGE, CBS_DROPDOWNLIST, CB_ADDSTRING,
-    CB_GETCURSEL, CB_SETCURSEL, CW_USEDEFAULT, EN_CHANGE, ES_AUTOHSCROLL, ES_AUTOVSCROLL,
-    ES_MULTILINE, ES_READONLY, ES_RIGHT, HMENU, IDC_ARROW, IDI_APPLICATION, IDYES, MB_ICONERROR,
-    MB_ICONQUESTION, MB_OK, MB_YESNO, MSG, SWP_NOMOVE, SWP_NOZORDER, SW_SHOWNORMAL,
-    WINDOW_EX_STYLE, WINDOW_STYLE, WM_ACTIVATE, WM_COMMAND, WM_DESTROY, WM_SETFONT, WNDCLASSEXW,
-    WS_BORDER, WS_CAPTION, WS_CHILD, WS_EX_CLIENTEDGE, WS_EX_RTLREADING, WS_MINIMIZEBOX,
-    WS_OVERLAPPED, WS_SYSMENU, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
+    TranslateMessage, BM_GETCHECK, BM_SETCHECK, BN_CLICKED, BS_AUTOCHECKBOX, BS_PUSHBUTTON,
+    CBN_SELCHANGE, CBS_DROPDOWNLIST, CB_ADDSTRING, CB_GETCURSEL, CB_SETCURSEL, CW_USEDEFAULT,
+    EN_CHANGE, EN_KILLFOCUS, ES_AUTOHSCROLL, ES_AUTOVSCROLL, ES_MULTILINE, ES_NUMBER, ES_READONLY,
+    ES_RIGHT, HMENU, IDC_ARROW, IDI_APPLICATION, IDYES, MB_ICONERROR, MB_ICONQUESTION, MB_OK,
+    MB_YESNO, MSG, SWP_NOMOVE, SWP_NOZORDER, SW_SHOWNORMAL, WINDOW_EX_STYLE, WINDOW_STYLE,
+    WM_ACTIVATE, WM_COMMAND, WM_DESTROY, WM_SETFONT, WNDCLASSEXW, WS_BORDER, WS_CAPTION, WS_CHILD,
+    WS_EX_CLIENTEDGE, WS_EX_RTLREADING, WS_MINIMIZEBOX, WS_OVERLAPPED, WS_SYSMENU, WS_TABSTOP,
+    WS_VISIBLE, WS_VSCROLL,
 };
 
 const CLASS: PCWSTR = w!("PersianPhoneticImeSettings");
@@ -59,6 +65,10 @@ const ID_TRY_OUT: i32 = 111;
 const ID_TRY_ALTS: i32 = 112;
 const ID_NOTE: i32 = 113;
 const ID_COMBO_BASE: i32 = 200;
+const ID_CHECK_BASE: i32 = 300;
+const ID_NUMBER_BASE: i32 = 320;
+const ID_CLEAR: i32 = 340;
+const ID_LEARNED: i32 = 341;
 const WA_INACTIVE: usize = 0;
 /// Static-control styles: shorten long paths with "...", show "&" literally.
 const SS_PATHELLIPSIS: i32 = 0x8000;
@@ -69,6 +79,10 @@ struct App {
     status: HWND,
     note: HWND,
     combos: Vec<HWND>,
+    checks: Vec<HWND>,
+    numbers: Vec<HWND>,
+    learned: Option<HWND>,
+    runtime: Option<Arc<Runtime>>,
     try_in: Option<HWND>,
     try_out: Option<HWND>,
     try_alts: Option<HWND>,
@@ -295,6 +309,7 @@ fn create_and_loop(paths: Paths, errors_only: bool) -> Result<()> {
         y += 40;
 
         let mut combos = Vec::new();
+        let (mut checks, mut numbers, mut learned) = (Vec::new(), Vec::new(), None);
         let (mut try_in, mut try_out, mut try_alts) = (None, None, None);
         if !errors_only {
             let heading = "Options (saved as soon as you change them):";
@@ -321,6 +336,60 @@ fn create_and_loop(paths: Paths, errors_only: bool) -> Result<()> {
                 y += 30;
             }
             y += 8;
+            b.add(
+                Ctl(st, "Word completion:", 0, none, -1),
+                (m, y, full, 20),
+                ui_font,
+            )?;
+            y += 24;
+            for (i, row) in CHECK_ROWS.iter().enumerate() {
+                let id = ID_CHECK_BASE + i as i32;
+                let style = BS_AUTOCHECKBOX | tab;
+                checks.push(b.add(
+                    Ctl(bt, row.label, style, none, id),
+                    (m, y, full, 22),
+                    ui_font,
+                )?);
+                y += 26;
+            }
+            for (i, row) in NUMBER_ROWS.iter().enumerate() {
+                b.add(
+                    Ctl(st, row.label, 0, none, -1),
+                    (m, y + 4, 300, 20),
+                    ui_font,
+                )?;
+                let id = ID_NUMBER_BASE + i as i32;
+                let style = ES_NUMBER | ES_AUTOHSCROLL | tab;
+                numbers.push(b.add(
+                    Ctl(ed, "", style, WS_EX_CLIENTEDGE, id),
+                    (m + 310, y, 60, 26),
+                    ui_font,
+                )?);
+                y += 32;
+            }
+            b.add(
+                Ctl(st, PRIVACY_LINE, 0, none, -1),
+                (m, y, full, 20),
+                ui_font,
+            )?;
+            y += 26;
+            learned = Some(b.add(
+                Ctl(st, "", 0, none, ID_LEARNED),
+                (m, y + 5, 300, 20),
+                ui_font,
+            )?);
+            b.add(
+                Ctl(
+                    bt,
+                    "Clear learned words",
+                    BS_PUSHBUTTON | tab,
+                    none,
+                    ID_CLEAR,
+                ),
+                (m + 310, y, 200, 30),
+                ui_font,
+            )?;
+            y += 42;
             let heading = "Try typing (Latin letters; nothing you type here is saved):";
             b.add(Ctl(st, heading, 0, none, -1), (m, y, full, 20), ui_font)?;
             y += 22;
@@ -338,8 +407,8 @@ fn create_and_loop(paths: Paths, errors_only: bool) -> Result<()> {
                 big_font,
             )?);
             y += 46;
-            try_alts = Some(b.add(Ctl(st, "", 0, none, ID_TRY_ALTS), (m, y, full, 20), ui_font)?);
-            y += 30;
+            try_alts = Some(b.add(Ctl(st, "", 0, none, ID_TRY_ALTS), (m, y, full, 36), ui_font)?);
+            y += 44;
         }
         let note = b.add(Ctl(st, "", 0, none, ID_NOTE), (m, y, full, 20), ui_font)?;
         y += 20 + m;
@@ -362,10 +431,14 @@ fn create_and_loop(paths: Paths, errors_only: bool) -> Result<()> {
         )?;
 
         let state = Rc::new(App {
+            runtime: (!errors_only).then(|| start_preview_runtime(&paths)),
             paths,
             status,
             note,
             combos,
+            checks,
+            numbers,
+            learned,
             try_in,
             try_out,
             try_alts,
@@ -385,6 +458,9 @@ fn create_and_loop(paths: Paths, errors_only: bool) -> Result<()> {
                 let _ = TranslateMessage(&msg);
                 DispatchMessageW(&msg);
             }
+        }
+        if let Some(rt) = &state.runtime {
+            rt.shutdown();
         }
         APP.with(|a| a.borrow_mut().take());
         for f in &state.fonts {
@@ -446,16 +522,48 @@ fn refresh(app: &App) {
             SendMessageW(combo, CB_SETCURSEL, Some(WPARAM(index)), None);
         }
     }
+    for (row, &check) in CHECK_ROWS.iter().zip(&app.checks) {
+        let on =
+            cfg.option_value(&format!("autocomplete.{}", row.key)) == Some(OptionValue::Bool(true));
+        // SAFETY: valid button handle; BM_SETCHECK does not notify the parent.
+        unsafe {
+            SendMessageW(check, BM_SETCHECK, Some(WPARAM(on as usize)), None);
+        }
+    }
+    for (row, &num) in NUMBER_ROWS.iter().zip(&app.numbers) {
+        if let Some(OptionValue::Integer(n)) =
+            cfg.option_value(&format!("autocomplete.{}", row.key))
+        {
+            set_text(num, &n.to_string());
+        }
+    }
+    show_learned_count(app);
     update_preview(app);
+}
+
+fn show_learned_count(app: &App) {
+    if let Some(label) = app.learned {
+        let n = learned_count(&app.paths).unwrap_or(0);
+        set_text(label, &count_text(n));
+    }
 }
 
 fn update_preview(app: &App) {
     let (Some(input), Some(out), Some(alts)) = (app.try_in, app.try_out, app.try_alts) else {
         return;
     };
-    let p = preview(app.cfg.borrow().clone(), &get_text(input));
+    let completer = app.runtime.as_ref().map(preview_completer);
+    let p = preview_with(app.cfg.borrow().clone(), &get_text(input), completer);
     set_text(out, &p.text_line());
-    set_text(alts, &p.alternatives_line());
+    let lines = [p.alternatives_line(), p.completions_line()];
+    let both: Vec<String> = lines.into_iter().filter(|l| !l.is_empty()).collect();
+    set_text(
+        alts,
+        &both.join(
+            "
+",
+        ),
+    );
 }
 
 fn notify_saved(app: &App, note: &str) {
@@ -491,13 +599,72 @@ fn on_combo(app: &App, hwnd: HWND, i: usize) {
     let Some(value) = usize::try_from(sel).ok().and_then(|s| opt.value(s)) else {
         return;
     };
-    match save_setting(&app.paths.config_file, Section::Options, opt.key, &value) {
+    match save_setting(
+        &app.paths.config_file,
+        pime_settings::edit::Section::Options,
+        opt.key,
+        &value,
+    ) {
         Ok(()) => notify_saved(app, &format!("Saved: {} changed.", opt.key)),
         Err(e) => {
             message(hwnd, &e.to_string(), false);
         }
     }
     refresh(app);
+}
+
+fn save_autocomplete(app: &App, hwnd: HWND, key: &str, value: OptionValue) {
+    match save_setting(&app.paths.config_file, SECTION, key, &value) {
+        Ok(()) => notify_saved(app, &format!("Saved: {key} changed.")),
+        Err(e) => {
+            message(hwnd, &e.to_string(), false);
+        }
+    }
+    refresh(app);
+}
+
+fn on_check(app: &App, hwnd: HWND, i: usize) {
+    let (Some(row), Some(&check)) = (CHECK_ROWS.get(i), app.checks.get(i)) else {
+        return;
+    };
+    // SAFETY: valid button handle.
+    let on = unsafe { SendMessageW(check, BM_GETCHECK, None, None) }.0 == 1;
+    save_autocomplete(app, hwnd, row.key, OptionValue::Bool(on));
+}
+
+fn on_number(app: &App, hwnd: HWND, i: usize) {
+    let (Some(row), Some(&num)) = (NUMBER_ROWS.get(i), app.numbers.get(i)) else {
+        return;
+    };
+    // Empty or invalid text: put the saved value back.
+    if let Some(n) = row.parse(&get_text(num)) {
+        save_autocomplete(app, hwnd, row.key, OptionValue::Integer(n));
+    } else {
+        refresh(app);
+    }
+}
+
+fn on_clear(app: &App, hwnd: HWND) {
+    if !message(
+        hwnd,
+        "Forget all the words the IME has learned from your choices?
+
+This can't be undone.          Your settings are not changed.",
+        true,
+    ) {
+        return;
+    }
+    match clear_history(&app.paths) {
+        Ok(_) => notify_saved(app, "Learned words cleared."),
+        Err(e) => {
+            message(
+                hwnd,
+                &format!("The learned words couldn't be cleared ({e})."),
+                false,
+            );
+        }
+    }
+    show_learned_count(app);
 }
 
 fn on_reset(app: &App, hwnd: HWND) {
@@ -557,6 +724,13 @@ fn handle(hwnd: HWND, msg: u32, wp: WPARAM) -> Option<LRESULT> {
                 (ID_CHECK, BN_CLICKED) => {
                     set_text(app.note, "Checked again.");
                     refresh(&app);
+                }
+                (ID_CLEAR, BN_CLICKED) => on_clear(&app, hwnd),
+                (id, BN_CLICKED) if (ID_CHECK_BASE..ID_NUMBER_BASE).contains(&id) => {
+                    on_check(&app, hwnd, (id - ID_CHECK_BASE) as usize)
+                }
+                (id, EN_KILLFOCUS) if (ID_NUMBER_BASE..ID_CLEAR).contains(&id) => {
+                    on_number(&app, hwnd, (id - ID_NUMBER_BASE) as usize)
                 }
                 (ID_TRY_IN, EN_CHANGE) => update_preview(&app),
                 (id, CBN_SELCHANGE) if id >= ID_COMBO_BASE => {

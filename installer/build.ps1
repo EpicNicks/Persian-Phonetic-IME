@@ -114,6 +114,15 @@ $SetupX86 = Join-Path $TargetDir 'i686-pc-windows-msvc\release\pime-setup.exe'
 $SettingsExe = Join-Path $TargetDir 'x86_64-pc-windows-msvc\release\pime-settings.exe'
 foreach ($p in $SetupX64, $SetupX86, $SettingsExe) { if (-not (Test-Path $p)) { throw "Missing build output $p" } }
 
+# --- dictionary (AC-G): dict.bin + notices, built into the stage folder below ---------------------
+$DictSrc = Join-Path $Root 'data\dict'
+$DictTsvs = @('fa-wordfreq.tsv', 'wordfreq-fa.tsv', 'extra.tsv') | ForEach-Object { Join-Path $DictSrc $_ } |
+    Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+if (-not $DictTsvs) { throw "No dictionary source TSV in $DictSrc" }
+$NoticeSrc = Join-Path $DictSrc 'NOTICE.txt'
+$LicenseSrc = Join-Path $DictSrc 'CC-BY-SA-4.0.txt'
+foreach ($p in $NoticeSrc, $LicenseSrc) { if (-not (Test-Path -LiteralPath $p -PathType Leaf)) { throw "Missing $p (required third-party notice)" } }
+
 # --- stage ----------------------------------------------------------------------------------------
 $Stage = Join-Path $OutDir "stage\$Version"
 if (Test-Path $Stage) { Remove-Item -Recurse -Force $Stage }
@@ -123,6 +132,22 @@ Copy-Item $DllX86 (Join-Path $Stage "PersianPhoneticIme.$Version.x86.dll")
 Copy-Item $SetupX64 (Join-Path $Stage 'pime-setup.x64.exe')
 Copy-Item $SetupX86 (Join-Path $Stage 'pime-setup.x86.exe')
 Copy-Item $SettingsExe (Join-Path $Stage 'pime-settings.exe')
+$DictBin = Join-Path $Stage 'dict.bin'
+Push-Location $Root
+try {
+    $dictArgs = @('run', '-p', 'xtask', '--release', '--', 'build-dict')
+    foreach ($t in $DictTsvs) { $dictArgs += @('--input', $t) }
+    $dictArgs += @('--out', $DictBin)
+    Invoke-Checked 'cargo' $dictArgs
+} finally {
+    Pop-Location
+}
+if (-not (Test-Path -LiteralPath $DictBin -PathType Leaf) -or (Get-Item -LiteralPath $DictBin).Length -eq 0) {
+    throw "build-dict did not produce a non-empty $DictBin"
+}
+Copy-Item $NoticeSrc (Join-Path $Stage 'THIRD-PARTY-NOTICES.txt')
+New-Item -ItemType Directory -Force (Join-Path $Stage 'licenses') | Out-Null
+Copy-Item $LicenseSrc (Join-Path $Stage 'licenses\CC-BY-SA-4.0.txt')
 if ($Placeholder) {
     @"
 PLACEHOLDER BUILD - NOT A RELEASE.

@@ -13,8 +13,15 @@
 //! `DllMain`. `DllCanUnloadNow` must answer `S_FALSE` while [`is_running`] is true: a pending
 //! thread-pool callback into an unloaded DLL would crash the host.
 //!
-//! AppContainer hosts cannot open the desktop session's `Local\` objects; then [`start`] does
-//! nothing and the focus-change check is the only reload path.
+//! Security: a new event gets the explicit descriptor from the settings contract (Everyone and
+//! both AppContainer package groups may `SYNCHRONIZE | EVENT_MODIFY_STATE`, low mandatory
+//! label), so an elevated host that creates it first does not lock out the medium-integrity
+//! settings app. The watcher asks only for `SYNCHRONIZE`. Every failure means "no watcher".
+//!
+//! AppContainer hosts: `Local\` there names a private per-package object that nobody signals,
+//! so [`start`] never creates one. It only tries to open the desktop session's event by its
+//! `Session\<id>\` name (works only if the namespace lets the package through; unverified);
+//! otherwise the focus-change check is the only reload path.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
@@ -58,7 +65,7 @@ pub fn start() {
         let mut g = global();
         g.refs += 1;
         if g.refs == 1 {
-            g.watcher = Watcher::start(CONFIG_CHANGED_EVENT, &SIGNALS, MIN_REARM_MS);
+            g.watcher = start_process_watcher();
             RUNNING.store(g.watcher.is_some(), Ordering::SeqCst);
         }
     });
@@ -86,6 +93,34 @@ pub fn is_running() -> bool {
     RUNNING.load(Ordering::SeqCst)
 }
 
+/// True when this process runs in an AppContainer (also false when the token cannot be read).
+#[cfg(windows)]
+pub fn is_app_container() -> bool {
+    win::app_container_session().is_some()
+}
+
+#[cfg(not(windows))]
+pub fn is_app_container() -> bool {
+    false
+}
+
+#[cfg(windows)]
+fn start_process_watcher() -> Option<Watcher> {
+    match win::app_container_session() {
+        None => Watcher::start(CONFIG_CHANGED_EVENT, &SIGNALS, MIN_REARM_MS),
+        Some(session) => {
+            let leaf = CONFIG_CHANGED_EVENT.trim_start_matches(r"Local\");
+            let name = format!(r"Session\{session}\{leaf}");
+            Watcher::open_existing(&name, &SIGNALS, MIN_REARM_MS)
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn start_process_watcher() -> Option<Watcher> {
+    None
+}
+
 #[cfg(windows)]
 pub use win::Watcher;
 
@@ -98,6 +133,15 @@ impl Watcher {
     }
 }
 
+/// Binary DACL and SACL of the event's descriptor (tests compare them with the settings app's).
+#[cfg(windows)]
+#[doc(hidden)]
+pub fn event_security_acls() -> Option<(Vec<u8>, Vec<u8>)> {
+    win::security::EventSecurity::new()
+        .ok()
+        .map(|s| s.acl_bytes())
+}
+
 #[cfg(windows)]
 mod win {
     use std::ffi::c_void;
@@ -106,12 +150,164 @@ mod win {
     use std::sync::Arc;
     use windows::core::HSTRING;
     use windows::Win32::Foundation::{CloseHandle, FILETIME, HANDLE};
-    use windows::Win32::System::Threading::{
-        CloseThreadpoolTimer, CloseThreadpoolWait, CreateEventW, CreateThreadpoolTimer,
-        CreateThreadpoolWait, SetThreadpoolTimer, SetThreadpoolWait,
-        WaitForThreadpoolTimerCallbacks, WaitForThreadpoolWaitCallbacks, PTP_CALLBACK_INSTANCE,
-        PTP_TIMER, PTP_WAIT,
+    use windows::Win32::Security::{
+        GetTokenInformation, TokenIsAppContainer, TokenSessionId, TOKEN_QUERY,
     };
+    use windows::Win32::System::Threading::{
+        CloseThreadpoolTimer, CloseThreadpoolWait, CreateEventExW, CreateThreadpoolTimer,
+        CreateThreadpoolWait, GetCurrentProcess, OpenEventW, OpenProcessToken, SetThreadpoolTimer,
+        SetThreadpoolWait, WaitForThreadpoolTimerCallbacks, WaitForThreadpoolWaitCallbacks,
+        CREATE_EVENT_MANUAL_RESET, PTP_CALLBACK_INSTANCE, PTP_TIMER, PTP_WAIT,
+        SYNCHRONIZATION_ACCESS_RIGHTS,
+    };
+
+    /// The event's explicit security descriptor; must match `pime_settings::reload` (tested).
+    pub(crate) mod security {
+        use std::ffi::c_void;
+        use windows::Win32::Security::{
+            AddAccessAllowedAce, AddMandatoryAce, InitializeAcl, InitializeSecurityDescriptor,
+            SetSecurityDescriptorDacl, SetSecurityDescriptorSacl, ACE_FLAGS, ACL, ACL_REVISION,
+            PSECURITY_DESCRIPTOR, PSID, SECURITY_ATTRIBUTES, SECURITY_DESCRIPTOR,
+        };
+
+        pub const SYNCHRONIZE: u32 = 0x0010_0000;
+        pub const EVENT_MODIFY_STATE: u32 = 0x0002;
+        const SYSTEM_MANDATORY_LABEL_NO_WRITE_UP: u32 = 1;
+
+        // Binary SIDs as u32 words: [revision 1 | count << 8, 6-byte big-endian authority
+        // (last byte in the top bits of word 1), sub-authorities...].
+        const EVERYONE: [u32; 3] = [0x0101, 0x0100_0000, 0];
+        const ALL_APP_PACKAGES: [u32; 4] = [0x0201, 0x0F00_0000, 2, 1];
+        const ALL_RESTRICTED_APP_PACKAGES: [u32; 4] = [0x0201, 0x0F00_0000, 2, 2];
+        const LOW_LABEL: [u32; 3] = [0x0101, 0x1000_0000, 0x1000];
+        const GRANTEES: [&[u32]; 3] = [&EVERYONE, &ALL_APP_PACKAGES, &ALL_RESTRICTED_APP_PACKAGES];
+
+        fn sid(s: &[u32]) -> PSID {
+            PSID(s.as_ptr() as *mut c_void)
+        }
+
+        /// ACL header plus one ACE (header + mask + SID) per SID.
+        fn acl_len(sids: &[&[u32]]) -> u32 {
+            8 + sids.iter().map(|s| 8 + 4 * s.len() as u32).sum::<u32>()
+        }
+
+        #[repr(C, align(8))]
+        struct AclBuf([u8; 128]);
+
+        /// An absolute security descriptor and the ACLs it points to (boxed so they never move).
+        pub struct EventSecurity {
+            sd: Box<SECURITY_DESCRIPTOR>,
+            dacl: Box<AclBuf>,
+            sacl: Box<AclBuf>,
+        }
+
+        impl EventSecurity {
+            pub fn new() -> windows::core::Result<EventSecurity> {
+                let mut me = EventSecurity {
+                    sd: Box::new(SECURITY_DESCRIPTOR::default()),
+                    dacl: Box::new(AclBuf([0; 128])),
+                    sacl: Box::new(AclBuf([0; 128])),
+                };
+                let dacl = me.dacl.0.as_mut_ptr() as *mut ACL;
+                let sacl = me.sacl.0.as_mut_ptr() as *mut ACL;
+                let psd = PSECURITY_DESCRIPTOR(&mut *me.sd as *mut SECURITY_DESCRIPTOR as _);
+                // SAFETY: the buffers are large enough (acl_len <= 128), aligned, and live in
+                // `me`; the SIDs are valid constants, copied into the ACEs.
+                unsafe {
+                    InitializeAcl(dacl, acl_len(&GRANTEES), ACL_REVISION)?;
+                    for s in GRANTEES {
+                        AddAccessAllowedAce(
+                            dacl,
+                            ACL_REVISION,
+                            SYNCHRONIZE | EVENT_MODIFY_STATE,
+                            sid(s),
+                        )?;
+                    }
+                    InitializeAcl(sacl, acl_len(&[&LOW_LABEL]), ACL_REVISION)?;
+                    AddMandatoryAce(
+                        sacl,
+                        ACL_REVISION,
+                        ACE_FLAGS(0),
+                        SYSTEM_MANDATORY_LABEL_NO_WRITE_UP,
+                        sid(&LOW_LABEL),
+                    )?;
+                    InitializeSecurityDescriptor(psd, 1)?;
+                    SetSecurityDescriptorDacl(psd, true, Some(dacl), false)?;
+                    SetSecurityDescriptorSacl(psd, true, Some(sacl), false)?;
+                }
+                Ok(me)
+            }
+
+            /// Attributes pointing at this descriptor; valid while `self` lives.
+            pub fn attributes(&self) -> SECURITY_ATTRIBUTES {
+                SECURITY_ATTRIBUTES {
+                    nLength: std::mem::size_of::<SECURITY_ATTRIBUTES>() as u32,
+                    lpSecurityDescriptor: &*self.sd as *const SECURITY_DESCRIPTOR as *mut c_void,
+                    bInheritHandle: false.into(),
+                }
+            }
+
+            /// The DACL and SACL bytes (ACL header's `AclSize` long).
+            pub fn acl_bytes(&self) -> (Vec<u8>, Vec<u8>) {
+                fn bytes(b: &AclBuf) -> Vec<u8> {
+                    let len = u16::from_le_bytes([b.0[2], b.0[3]]) as usize;
+                    b.0[..len.min(b.0.len())].to_vec()
+                }
+                (bytes(&self.dacl), bytes(&self.sacl))
+            }
+        }
+    }
+
+    /// `Some(session id)` when this process runs in an AppContainer, else `None` (also when
+    /// the token cannot be queried: then behave like a desktop process).
+    pub fn app_container_session() -> Option<u32> {
+        // SAFETY: plain FFI on locals; the token handle is closed before returning.
+        unsafe {
+            let mut tok = HANDLE::default();
+            OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut tok).ok()?;
+            let query = |class, out: &mut u32| {
+                let mut len = 0u32;
+                GetTokenInformation(
+                    tok,
+                    class,
+                    Some(out as *mut u32 as *mut c_void),
+                    4,
+                    &mut len,
+                )
+                .is_ok()
+            };
+            let (mut is_ac, mut session) = (0u32, 0u32);
+            let r = (query(TokenIsAppContainer, &mut is_ac) && is_ac != 0)
+                && query(TokenSessionId, &mut session);
+            let _ = CloseHandle(tok);
+            r.then_some(session)
+        }
+    }
+
+    /// Opens (or, with `create`, creates with the explicit descriptor) event `name` with
+    /// `SYNCHRONIZE` only. Creation falls back to plain open, then default security.
+    fn open_event(name: &str, create: bool) -> Option<HANDLE> {
+        let name = HSTRING::from(name);
+        let access = security::SYNCHRONIZE;
+        if create {
+            if let Ok(sec) = security::EventSecurity::new() {
+                let sa = sec.attributes();
+                // SAFETY: plain FFI; `sa` and its descriptor outlive the call.
+                let r =
+                    unsafe { CreateEventExW(Some(&sa), &name, CREATE_EVENT_MANUAL_RESET, access) };
+                if let Ok(h) = r {
+                    return Some(h);
+                }
+            }
+        }
+        // SAFETY: plain FFI; the name outlives the calls.
+        let opened = unsafe { OpenEventW(SYNCHRONIZATION_ACCESS_RIGHTS(access), false, &name) };
+        if opened.is_ok() || !create {
+            return opened.ok();
+        }
+        // SAFETY: as above.
+        unsafe { CreateEventExW(None, &name, CREATE_EVENT_MANUAL_RESET, access) }.ok()
+    }
 
     struct Shared {
         event: HANDLE,
@@ -161,6 +357,10 @@ mod win {
             }
             s.counter.fetch_add(1, Ordering::AcqRel);
             s.wakes.fetch_add(1, Ordering::AcqRel);
+            if std::ptr::eq(s.counter, &super::SIGNALS) {
+                // The settings app also signals after clearing learned words.
+                crate::autocomplete::on_clear_signal();
+            }
             let due = relative(s.rearm_ms);
             // SAFETY: the timer is valid until stop() closes it after draining callbacks.
             unsafe {
@@ -190,11 +390,26 @@ mod win {
 
     impl Watcher {
         /// Opens or creates the manual-reset event `name` and starts waiting. `None` when the
-        /// event cannot be opened (AppContainer) or the pool refuses: silently no watcher.
+        /// event cannot be opened or the pool refuses: silently no watcher.
         /// Each wake bumps `counter`; the wait re-arms `rearm_ms` later.
         pub fn start(name: &str, counter: &'static AtomicU64, rearm_ms: u32) -> Option<Watcher> {
-            // SAFETY: plain FFI; the name outlives the call. Default security, per the README.
-            let event = unsafe { CreateEventW(None, true, false, &HSTRING::from(name)) }.ok()?;
+            Self::with_event(open_event(name, true)?, counter, rearm_ms)
+        }
+
+        /// Like [`Watcher::start`] but never creates the event (AppContainer hosts).
+        pub fn open_existing(
+            name: &str,
+            counter: &'static AtomicU64,
+            rearm_ms: u32,
+        ) -> Option<Watcher> {
+            Self::with_event(open_event(name, false)?, counter, rearm_ms)
+        }
+
+        fn with_event(
+            event: HANDLE,
+            counter: &'static AtomicU64,
+            rearm_ms: u32,
+        ) -> Option<Watcher> {
             let shared = Arc::new(Shared {
                 event,
                 wait: AtomicIsize::new(0),
@@ -299,6 +514,33 @@ mod tests {
             pime_settings::reload::CONFIG_CHANGED_EVENT
         );
         assert_eq!(MIN_REARM_MS, pime_settings::reload::MIN_REARM_MS);
+    }
+
+    #[test]
+    fn descriptor_matches_settings_contract() {
+        let ours = event_security_acls().expect("descriptor builds");
+        assert_eq!(Some(ours), pime_settings::reload::event_security_acls());
+    }
+
+    #[test]
+    fn opens_event_created_first_by_settings() {
+        let name = test_name("settings-first");
+        let sender = pime_settings::reload::NamedEvent::open_or_create(&name).unwrap();
+        let c = counter();
+        let w = Watcher::open_existing(&name, c, 300).expect("opens existing");
+        sender.pulse(50).unwrap();
+        assert!(wait_until(2000, || w.wakes() == 1));
+    }
+
+    #[test]
+    fn open_existing_never_creates() {
+        let c = counter();
+        assert!(Watcher::open_existing(&test_name("absent"), c, 300).is_none());
+    }
+
+    #[test]
+    fn this_test_process_is_not_an_app_container() {
+        assert_eq!(win::app_container_session(), None);
     }
 
     #[test]
