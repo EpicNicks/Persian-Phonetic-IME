@@ -32,6 +32,9 @@ enabled = false
 predict_min_chars = 2
 learning = true
 max_completions = 5
+fuzzy = true
+fuzzy_min_chars = 3
+filter_profanity = true
 
 [map.digraphs]
 kh = ["خ"]

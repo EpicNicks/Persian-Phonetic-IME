@@ -1,6 +1,6 @@
 {
  "version": 1,
- "description": "pime-dict goldens (docs/autocomplete.md section 8), run by crates/pime-dict/tests/golden.rs. Expectations follow the contract (2.4, 3.1-3.4) with default ScoreParams and BuildOptions.",
+ "description": "pime-dict goldens (docs/autocomplete.md sections 8 and 13), run by crates/pime-dict/tests/golden.rs. Expectations follow the contract (2.4, 3.1-3.4, 13) with default ScoreParams and BuildOptions. complete cases: fuzzy defaults to false (so cases written before section 13 keep their meaning), fuzzy_min_chars to 3, hide_flagged to true; expect_edits (optional) is parallel to expect. build cases: expect_display lists every entry (hide_flagged off), expect_hidden_display (optional) those left with hide_flagged on, expect_format_version (optional) checks the header.",
  "cases": [
   {
    "type": "complete",
@@ -1261,6 +1261,863 @@
     "کیک": 3.0,
     "مکه": 3.0
    }
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy fills the slots exact matches leave",
+   "note": "13: exact rows first; سلط and سلی are one substitution from سلا",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلا",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت",
+    "سلطان",
+    "سلیقه"
+   ],
+   "expect_edits": [
+    0,
+    0,
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy not run when exact fills the limit",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلا",
+   "limit": 2,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ],
+   "expect_edits": [
+    0,
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "typo inside the prefix completes",
+   "note": "all four are 1 edit from a prefix; سبد is 2 (over maxd(3)=1); order by score",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلم",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت",
+    "سلطان",
+    "سلیقه"
+   ],
+   "expect_edits": [
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy off gives no typo matches",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": false,
+   "prefix": "سلم",
+   "limit": 5,
+   "expect": [],
+   "expect_edits": []
+  },
+  {
+   "type": "complete",
+   "name": "below fuzzy_min_chars no fuzzy",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "fuzzy_min_chars": 4,
+   "prefix": "سلم",
+   "limit": 5,
+   "expect": [],
+   "expect_edits": []
+  },
+  {
+   "type": "complete",
+   "name": "two letters are below the default fuzzy_min_chars",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سم",
+   "limit": 9,
+   "expect": [],
+   "expect_edits": []
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy_min_chars 2 allows two-letter typos",
+   "note": "the prefix س is one deletion away for every س word",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "fuzzy_min_chars": 2,
+   "prefix": "سم",
+   "limit": 9,
+   "expect": [
+    "سلام",
+    "سلامت",
+    "سلطان",
+    "سلیقه",
+    "سبد"
+   ],
+   "expect_edits": [
+    1,
+    1,
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "exact never displaced by a better-scored fuzzy row",
+   "tsv": "سلام\t3.0\nسلطان\t6.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلا",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلطان"
+   ],
+   "expect_edits": [
+    0,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy only fills: limit one keeps the exact row",
+   "tsv": "سلام\t3.0\nسلطان\t6.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلا",
+   "limit": 1,
+   "expect": [
+    "سلام"
+   ],
+   "expect_edits": [
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "fewer edits rank before higher score",
+   "note": "n=7, maxd 2: کتابخانه is 1 insertion, کتابخوان 2 substitutions; کتاب needs 3 deletions",
+   "tsv": "کتابخانه\t3.0\nکتابخوان\t5.0\nکتاب\t6.0\nکتری\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "کتابخنه",
+   "limit": 5,
+   "expect": [
+    "کتابخانه",
+    "کتابخوان"
+   ],
+   "expect_edits": [
+    1,
+    2
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "maxd is 1 at five letters",
+   "note": "دامسگ vs دانشگ: 2 substitutions",
+   "tsv": "دانشگاه\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "دامسگ",
+   "limit": 5,
+   "expect": [],
+   "expect_edits": []
+  },
+  {
+   "type": "complete",
+   "name": "maxd is 2 at six letters",
+   "tsv": "دانشگاه\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "دامسگا",
+   "limit": 5,
+   "expect": [
+    "دانشگاه"
+   ],
+   "expect_edits": [
+    2
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "one edit at five letters",
+   "tsv": "دانشگاه\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "دانسگ",
+   "limit": 5,
+   "expect": [
+    "دانشگاه"
+   ],
+   "expect_edits": [
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "edits is the distance to the closest prefix",
+   "note": "دانش is already within 2 edits of دانشجو, but the longer prefix دانشمجو is 1 (delete م)",
+   "tsv": "دانشمجو\t3.0\nدانشکده\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "دانشجو",
+   "limit": 5,
+   "expect": [
+    "دانشمجو",
+    "دانشکده"
+   ],
+   "expect_edits": [
+    1,
+    2
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "adjacent transposition costs one",
+   "note": "without transpositions لسام is 2 edits from any prefix of سلام (over maxd(4)=1)",
+   "tsv": "سلام\t5.0\nلباس\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "لسام",
+   "limit": 5,
+   "expect": [
+    "سلام"
+   ],
+   "expect_edits": [
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "word equal to the preedit key excluded",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلاح\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلام",
+   "limit": 5,
+   "expect": [
+    "سلامت",
+    "سلاح"
+   ],
+   "expect_edits": [
+    0,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy row is the display form, not the typed arabic kaf",
+   "note": "13: fuzzy text replaces the preedit; U+0643 never appears in a fuzzy row",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "كتب",
+   "limit": 5,
+   "expect": [
+    "کتاب",
+    "کتابخانه",
+    "کتری"
+   ],
+   "expect_edits": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy row drops a typed diacritic",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سَلم",
+   "limit": 2,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ],
+   "expect_edits": [
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "zwnj prefix: fuzzy after exact",
+   "note": "fuzzy rows are display forms: no typed-ZWNJ rule",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "می‌خ",
+   "limit": 5,
+   "expect": [
+    "می‌خواهم",
+    "می‌خک",
+    "میز"
+   ],
+   "expect_edits": [
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "zwnj not counted toward fuzzy_min_chars",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "می‌",
+   "limit": 5,
+   "expect": [
+    "می‌خواهم",
+    "می‌ز",
+    "می‌خک"
+   ],
+   "expect_edits": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "zwnj not offered after typing past it, fuzzy on",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\nمیخک\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "میخ",
+   "limit": 5,
+   "expect": [
+    "میخواهم",
+    "میخک",
+    "میز"
+   ],
+   "expect_edits": [
+    0,
+    0,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy row keeps the dictionary zwnj",
+   "tsv": "می‌خواهم\t4.8\nمیز\t4.5\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "میخاهم",
+   "limit": 5,
+   "expect": [
+    "می‌خواهم"
+   ],
+   "expect_edits": [
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "fuzzy with limit zero",
+   "tsv": "سلام\t5.0\nسلامت\t4.2\nسلطان\t4.0\nسلیقه\t3.5\nسبد\t3.0\nکتاب\t5.0\nکتابخانه\t4.0\nکتری\t3.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلم",
+   "limit": 0,
+   "expect": [],
+   "expect_edits": []
+  },
+  {
+   "type": "complete",
+   "name": "history boost reorders fuzzy rows",
+   "note": "4.0 + 1.5*log2(3) = 6.38 > 5.0",
+   "tsv": "سلام\t5.0\nسلطان\t4.0\n",
+   "history": [
+    {
+     "word": "سلطان",
+     "events": [
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلم",
+   "limit": 5,
+   "expect": [
+    "سلطان",
+    "سلام"
+   ],
+   "expect_edits": [
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history ignored for fuzzy rows when use_history is false",
+   "tsv": "سلام\t5.0\nسلطان\t4.0\n",
+   "history": [
+    {
+     "word": "سلطان",
+     "events": [
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": false,
+   "fuzzy": true,
+   "prefix": "سلم",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلطان"
+   ],
+   "expect_edits": [
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history boost cannot lift fuzzy above exact",
+   "tsv": "سلام\t3.0\nسلطان\t4.0\n",
+   "history": [
+    {
+     "word": "سلطان",
+     "events": [
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلا",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلطان"
+   ],
+   "expect_edits": [
+    0,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history boost cannot beat fewer edits",
+   "tsv": "کتابخانه\t3.0\nکتابخوان\t5.0\nکتاب\t6.0\nکتری\t4.0\n",
+   "history": [
+    {
+     "word": "کتابخوان",
+     "events": [
+      "accepted",
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "کتابخنه",
+   "limit": 5,
+   "expect": [
+    "کتابخانه",
+    "کتابخوان"
+   ],
+   "expect_edits": [
+    1,
+    2
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "dismissal demotes a fuzzy row",
+   "note": "5.0 - 1.0 < 4.5",
+   "tsv": "سلام\t5.0\nسلطان\t4.5\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "dismissed"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلم",
+   "limit": 5,
+   "expect": [
+    "سلطان",
+    "سلام"
+   ],
+   "expect_edits": [
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "history boost reaches a fuzzy word among many candidates",
+   "note": "82 words are 1 edit from سلژ; 1.0 + 1.5*log2(6) = 4.88 beats the 3.0 of the other 81",
+   "tsv": "سلاا\t3.0\nسلاب\t3.0\nسلاپ\t3.0\nسلات\t3.0\nسلاث\t3.0\nسلاج\t3.0\nسلاچ\t3.0\nسلاح\t3.0\nسلاخ\t3.0\nسلبا\t3.0\nسلبب\t3.0\nسلبپ\t3.0\nسلبت\t3.0\nسلبث\t3.0\nسلبج\t3.0\nسلبچ\t3.0\nسلبح\t3.0\nسلبخ\t3.0\nسلپا\t3.0\nسلپب\t3.0\nسلپپ\t3.0\nسلپت\t3.0\nسلپث\t3.0\nسلپج\t3.0\nسلپچ\t3.0\nسلپح\t3.0\nسلپخ\t3.0\nسلتا\t3.0\nسلتب\t3.0\nسلتپ\t3.0\nسلتت\t3.0\nسلتث\t3.0\nسلتج\t3.0\nسلتچ\t3.0\nسلتح\t3.0\nسلتخ\t3.0\nسلثا\t3.0\nسلثب\t3.0\nسلثپ\t3.0\nسلثت\t3.0\nسلثث\t3.0\nسلثج\t3.0\nسلثچ\t3.0\nسلثح\t3.0\nسلثخ\t3.0\nسلجا\t3.0\nسلجب\t3.0\nسلجپ\t3.0\nسلجت\t3.0\nسلجث\t3.0\nسلجج\t3.0\nسلجچ\t3.0\nسلجح\t3.0\nسلجخ\t3.0\nسلچا\t3.0\nسلچب\t3.0\nسلچپ\t3.0\nسلچت\t3.0\nسلچث\t3.0\nسلچج\t3.0\nسلچچ\t3.0\nسلچح\t3.0\nسلچخ\t3.0\nسلحا\t3.0\nسلحب\t3.0\nسلحپ\t3.0\nسلحت\t3.0\nسلحث\t3.0\nسلحج\t3.0\nسلحچ\t3.0\nسلحح\t3.0\nسلحخ\t3.0\nسلخا\t3.0\nسلخب\t3.0\nسلخپ\t3.0\nسلخت\t3.0\nسلخث\t3.0\nسلخج\t3.0\nسلخچ\t3.0\nسلخح\t3.0\nسلخخ\t3.0\nسلیم\t1.0\n",
+   "history": [
+    {
+     "word": "سلیم",
+     "events": [
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلژ",
+   "limit": 1,
+   "expect": [
+    "سلیم"
+   ],
+   "expect_edits": [
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "flagged hidden in exact path",
+   "tsv": "سلام\t5.0\tp\nسلامت\t4.2\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت"
+   ],
+   "expect_edits": [
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "flagged shown when the filter is off",
+   "tsv": "سلام\t5.0\tp\nسلامت\t4.2\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "hide_flagged": false,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ],
+   "expect_edits": [
+    0,
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "flagged hidden in fuzzy path",
+   "tsv": "سلام\t5.0\tp\nسلطان\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلم",
+   "limit": 5,
+   "expect": [
+    "سلطان"
+   ],
+   "expect_edits": [
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "flagged shown in fuzzy path when the filter is off",
+   "tsv": "سلام\t5.0\tp\nسلطان\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "hide_flagged": false,
+   "prefix": "سلم",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلطان"
+   ],
+   "expect_edits": [
+    1,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "hidden exact words leave slots for fuzzy",
+   "tsv": "سلام\t5.0\tp\nسلطان\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سلا",
+   "limit": 5,
+   "expect": [
+    "سلطان"
+   ],
+   "expect_edits": [
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "hidden exact words shown with the filter off",
+   "tsv": "سلام\t5.0\tp\nسلطان\t4.0\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "hide_flagged": false,
+   "prefix": "سلا",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلطان"
+   ],
+   "expect_edits": [
+    0,
+    1
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "flagged word stays hidden despite accepts",
+   "tsv": "سلام\t5.0\tp\nسلامت\t4.2\n",
+   "history": [
+    {
+     "word": "سلام",
+     "events": [
+      "accepted",
+      "accepted",
+      "accepted"
+     ],
+     "day": 20000
+    }
+   ],
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت"
+   ],
+   "expect_edits": [
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "flag merged with OR across inputs",
+   "tsv": [
+    "سلام\t5.0\n",
+    "سلام\t4.0\tp\nسلامت\t4.2\n"
+   ],
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت"
+   ],
+   "expect_edits": [
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "flag on an arabic-form variant merges into the key",
+   "tsv": "كتاب\t5\tp\nکتاب\t4\nکتری\t3\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "کت",
+   "limit": 5,
+   "expect": [
+    "کتری"
+   ],
+   "expect_edits": [
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "flags column with crlf",
+   "tsv": "سلام\t5.0\tp\r\nسلامت\t4.2\r\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلامت"
+   ],
+   "expect_edits": [
+    0
+   ]
+  },
+  {
+   "type": "complete",
+   "name": "empty flags column means not flagged",
+   "note": "13 makes the column optional; an empty column is assumed to mean no flags",
+   "tsv": "سلام\t5.0\t\nسلامت\t4.2\n",
+   "today": 20000,
+   "use_history": true,
+   "fuzzy": true,
+   "prefix": "سل",
+   "limit": 5,
+   "expect": [
+    "سلام",
+    "سلامت"
+   ],
+   "expect_edits": [
+    0,
+    0
+   ]
+  },
+  {
+   "type": "build",
+   "name": "flagged words stay in dict.bin",
+   "note": "expect_display lists every entry (hide_flagged off); prior masks the flag bit",
+   "tsv": "سلام\t5\tp\nکتاب\t4\n",
+   "expect_display": [
+    "سلام",
+    "کتاب"
+   ],
+   "expect_hidden_display": [
+    "کتاب"
+   ],
+   "expect_report": {
+    "kept": 2,
+    "flagged": 1
+   },
+   "expect_prior": {
+    "سلام": 5.0,
+    "کتاب": 4.0
+   },
+   "expect_format_version": 2
+  },
+  {
+   "type": "build",
+   "name": "flags merged with OR",
+   "tsv": "سلام\t5\nسلام\t5\tp\n",
+   "expect_display": [
+    "سلام"
+   ],
+   "expect_hidden_display": [],
+   "expect_report": {
+    "kept": 1,
+    "flagged": 1
+   },
+   "expect_prior": {
+    "سلام": 5.3
+   }
+  },
+  {
+   "type": "build",
+   "name": "flag bit does not disturb a high prior",
+   "note": "و has one letter and is dropped by the 2..=32 key length rule",
+   "tsv": "برای\t9\tp\nو\t9\n",
+   "expect_display": [
+    "برای"
+   ],
+   "expect_hidden_display": [],
+   "expect_report": {
+    "kept": 1,
+    "flagged": 1
+   },
+   "expect_prior": {
+    "برای": 9.0
+   }
+  },
+  {
+   "type": "build",
+   "name": "unflagged input reports zero flagged",
+   "tsv": "سلام\t5\nکتاب\t4\n",
+   "expect_display": [
+    "سلام",
+    "کتاب"
+   ],
+   "expect_hidden_display": [
+    "سلام",
+    "کتاب"
+   ],
+   "expect_report": {
+    "kept": 2,
+    "flagged": 0
+   },
+   "expect_format_version": 2
   }
  ]
 }

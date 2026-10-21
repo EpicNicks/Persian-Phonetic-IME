@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Export a cleaned Persian word-frequency list from the `wordfreq` package.
 
-Output: UTF-8 TSV, one `word<TAB>zipf` per line, sorted by zipf descending
+Output: UTF-8 TSV, one `word<TAB>zipf` per line (`word<TAB>zipf<TAB>p` for vulgar words), sorted by zipf descending
 (docs/autocomplete.md section 3.2). zipf = log10(occurrences per billion words),
 2 decimals. Counts are summed as integers (round(freq * 1e9)) while spellings
 collapse, and converted to zipf only at the end. --min-zipf filters on zipf.
 
 Autocomplete-specific drops (counted in the summary): standalone morphemes
-(MORPHEMES below) and words listed in tools/wordlist/blocklist.txt.
+(MORPHEMES below). Words listed in tools/wordlist/blocklist.txt are NOT dropped:
+they get a third column `p` (vulgar flag) so the IME can hide them at runtime.
 
 Normalisation (each drop is counted in the summary):
   NFC; Arabic ي ى -> ی, ك -> ک, ة -> ه, ھ -> ه; tatweel and harakat stripped
@@ -128,14 +129,15 @@ def main():
                 block.add(normalise(line)[0] or line)
     n_morph = sum(1 for w in merged if w in MORPHEMES)
     n_block = sum(1 for w in merged if w in block)
-    items = sorted(((w, f) for w, f in merged.items() if w not in MORPHEMES and w not in block),
+    items = sorted(((w, f) for w, f in merged.items() if w not in MORPHEMES),
                    key=lambda kv: (-kv[1], kv[0]))
     if a.min_zipf is not None:
         items = [(w, f) for w, f in items if math.log10(f) >= a.min_zipf]
     items = items[: a.top]
     with open(a.out, "w", encoding="utf-8", newline="\n") as fh:
         for w, f in items:
-            fh.write(f"{w}\t{math.log10(f):.2f}\n")
+            flag = "\tp" if w in block else ""
+            fh.write(f"{w}\t{math.log10(f):.2f}{flag}\n")
     from importlib.metadata import version
     print(f"wordfreq {version('wordfreq')}", file=sys.stderr)
     print(f"source entries: {len(src)}", file=sys.stderr)
@@ -144,7 +146,7 @@ def main():
     print(f"  entries rewritten by normalisation: {changed}", file=sys.stderr)
     print(f"  merged away (collisions): {len(src) - sum(dropped.values()) - len(merged)}",
           file=sys.stderr)
-    print(f"  dropped morphemes: {n_morph}; blocklisted: {n_block}", file=sys.stderr)
+    print(f"  dropped morphemes: {n_morph}; flagged (blocklist): {n_block}", file=sys.stderr)
     print(f"written: {len(items)} -> {a.out}", file=sys.stderr)
 
 

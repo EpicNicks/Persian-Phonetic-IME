@@ -122,18 +122,10 @@ impl Completer for LiveCompleter {
             let today = (s.clock)();
             if ctx.use_history {
                 let h = lock(&s.history);
-                let rank = RankCtx {
-                    history: Some(&h),
-                    today,
-                    params: &s.opts.params,
-                };
+                let rank = RankCtx::from_ctx(ctx, Some(&h), today, &s.opts.params);
                 dict.complete(prefix, limit, &rank)
             } else {
-                let rank = RankCtx {
-                    history: None,
-                    today,
-                    params: &s.opts.params,
-                };
+                let rank = RankCtx::from_ctx(ctx, None, today, &s.opts.params);
                 dict.complete(prefix, limit, &rank)
             }
         }))
@@ -601,9 +593,16 @@ mod tests {
         }
     }
 
+    fn ctx(use_history: bool) -> CompleteCtx {
+        CompleteCtx {
+            use_history,
+            ..CompleteCtx::default()
+        }
+    }
+
     fn top(rt: &Arc<Runtime>, prefix: &str) -> String {
         let c = rt.completer();
-        let got = c.complete(prefix, 5, &CompleteCtx { use_history: true });
+        let got = c.complete(prefix, 5, &ctx(true));
         got.first().map(|c| c.text.clone()).unwrap_or_default()
     }
 
@@ -633,10 +632,7 @@ mod tests {
             rt.wait_loaded(Duration::from_secs(10)),
             Status::Unavailable(DictError::Missing)
         );
-        assert!(rt
-            .completer()
-            .complete("می", 5, &CompleteCtx { use_history: true })
-            .is_empty());
+        assert!(rt.completer().complete("می", 5, &ctx(true)).is_empty());
         rt.record(&accept("میز"));
         rt.shutdown();
         eventually("threads exit", || !rt.is_running());
@@ -654,9 +650,7 @@ mod tests {
         rt.record(&accept("میخ"));
         rt.record(&accept("میخ"));
         assert_eq!(top(&rt, "می"), "میخ");
-        let no_hist = rt
-            .completer()
-            .complete("می", 1, &CompleteCtx { use_history: false });
+        let no_hist = rt.completer().complete("می", 1, &ctx(false));
         assert_eq!(no_hist[0].text, "می\u{200C}خواهم");
         // Debounced save happens without request_save.
         eventually("debounced save", || {

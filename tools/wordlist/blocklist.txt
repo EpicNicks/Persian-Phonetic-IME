@@ -1,5 +1,5 @@
-# Words never offered as completions (one per line, normalised spelling; # starts a comment).
-# Only unambiguous vulgarity. Ambiguous words (سکس, کس, گه, تخم, ناموس, ...) are NOT here.
+# Words flagged `p` (vulgar) in the word list: kept in dict.bin, hidden unless filter_profanity = false.
+# Unambiguous vulgarity plus words the user chose to flag. Ambiguous everyday words (تخم, ناموس, بکن/بکنم/...) stay unflagged.
 کون
 کونم
 کونش
@@ -31,3 +31,18 @@
 گوه
 لاشی
 گاییدم
+سکس
+سکسی
+پورن
+ممه
+گه
+تخمی
+کس
+کوس
+جق
+فاحشه
+گای
+کسم
+بترکونه
+بگا
+بکنمت

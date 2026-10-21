@@ -27,8 +27,9 @@ pub mod render;
 mod session;
 
 pub use complete::{
-    completable, complete_with_zwnj_rule, match_key, CompleteCtx, Completer, Completion,
-    CompletionList, ContextPolicy, LearnEvent, LearnKind, ListCompleter, ZWNJ,
+    completable, complete_with_zwnj_rule, fuzzy_max_edits, match_key, prefix_edit_distance,
+    CompleteCtx, Completer, Completion, CompletionList, ContextPolicy, LearnEvent, LearnKind,
+    ListCompleter, ZWNJ,
 };
 pub use config::{
     autocomplete_specs, builtin_preset_names, decode_config_bytes, fallback_of, format_issues,

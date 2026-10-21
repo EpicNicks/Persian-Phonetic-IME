@@ -204,6 +204,34 @@ mod tests {
     }
 
     #[test]
+    fn fuzzy_and_filter_follow_config() {
+        let c: Arc<dyn Completer> =
+            Arc::new(pime_core::ListCompleter::new([("سالام".to_string(), 10.0)]));
+        let base = "[autocomplete]
+enabled = true
+predict_min_chars = 2
+";
+        let on = preview_with(
+            cfg(&format!(
+                "{base}fuzzy = true
+"
+            )),
+            "salaam",
+            Some(c.clone()),
+        );
+        let off = preview_with(
+            cfg(&format!(
+                "{base}fuzzy = false
+"
+            )),
+            "salaam",
+            Some(c),
+        );
+        assert!(off.completions.is_empty(), "{off:?}");
+        assert!(on.completions.len() >= off.completions.len());
+    }
+
+    #[test]
     fn empty() {
         let p = preview(cfg(""), "");
         assert_eq!(

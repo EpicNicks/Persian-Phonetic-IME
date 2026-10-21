@@ -452,16 +452,74 @@ mod autocomplete {
                 .into_iter()
                 .chain(["ي", "ك", "ة"].map(|a| format!("{prefix}{a}")))
                 .chain((0..20).map(|i| format!("{prefix}{}", "ب".repeat(i + 2))))
-                .map(|text| Completion { text, score: 1.0 })
+                .map(|text| Completion {
+                    text,
+                    score: 1.0,
+                    edits: 0,
+                })
                 .collect()
             }
         }
         let mut s = session("[autocomplete]\nenabled = true\n");
         s.set_completer(Some(Arc::new(Bad)));
         let out = type_str(&mut s, "sl");
-        let items = out.completions.unwrap().items;
-        assert_eq!(items.len(), 5);
-        assert_eq!(items[0], "سلام");
-        assert!(items[1..].iter().all(|w| w.starts_with("سلبب")));
+        let list = out.completions.unwrap();
+        assert_eq!(list.items.len(), 5);
+        assert_eq!(list.items[0], "سلام");
+        assert!(list.items[1..].iter().all(|w| w.starts_with("سلبب")));
+        assert_eq!(list.edits, [0; 5]);
+    }
+
+    #[test]
+    fn fuzzy_rows_are_filtered_but_need_not_extend_the_preedit() {
+        struct Fuzzy;
+        impl Completer for Fuzzy {
+            fn complete(&self, prefix: &str, _: usize, _: &CompleteCtx) -> Vec<Completion> {
+                [prefix, "", "سالم", "سليم", "كتاب", "خانة", "سالم", "سرد"]
+                    .into_iter()
+                    .map(|t| Completion {
+                        text: t.to_string(),
+                        score: 1.0,
+                        edits: 1,
+                    })
+                    .collect()
+            }
+        }
+        let mut s = session("[autocomplete]\nenabled = true\n");
+        s.set_completer(Some(Arc::new(Fuzzy)));
+        let list = type_str(&mut s, "sl").completions.unwrap();
+        assert_eq!(list.items, ["سالم", "سرد"]);
+        assert_eq!(list.edits, [1, 1]);
+    }
+
+    #[test]
+    fn completer_sees_the_configured_ctx() {
+        struct Spy(std::sync::Mutex<Option<CompleteCtx>>);
+        impl Completer for Spy {
+            fn complete(&self, _: &str, _: usize, ctx: &CompleteCtx) -> Vec<Completion> {
+                *self.0.lock().unwrap() = Some(*ctx);
+                Vec::new()
+            }
+        }
+        let spy = Arc::new(Spy(Default::default()));
+        let mut s = session("[autocomplete]\nenabled = true\n");
+        s.set_completer(Some(spy.clone()));
+        type_str(&mut s, "sl");
+        assert_eq!(*spy.0.lock().unwrap(), Some(CompleteCtx::default()));
+        let cfg = load_config(
+            "[autocomplete]\nenabled = true\nlearning = false\nfuzzy = false\n\
+             fuzzy_min_chars = 4\nfilter_profanity = false\n",
+        )
+        .config;
+        s.set_config(Arc::new(cfg));
+        assert_eq!(
+            *spy.0.lock().unwrap(),
+            Some(CompleteCtx {
+                use_history: false,
+                fuzzy: false,
+                fuzzy_min_chars: 4,
+                hide_flagged: false,
+            })
+        );
     }
 }

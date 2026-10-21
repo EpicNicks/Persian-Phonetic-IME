@@ -178,12 +178,23 @@ pub struct Autocomplete {
     pub learning: bool,
     /// Completion rows shown, clamped to `1..=MAX_COMPLETIONS_MAX`.
     pub max_completions: u32,
+    /// Typo-tolerant (edit-distance) suggestions after the exact ones.
+    pub fuzzy: bool,
+    /// Persian letters (ZWNJ not counted) typed before fuzzy matches are tried; at
+    /// least `FUZZY_MIN_CHARS_MIN`.
+    pub fuzzy_min_chars: u32,
+    /// Hide dictionary words flagged as vulgar.
+    pub filter_profanity: bool,
 }
 
 /// `max_completions` upper bound (the popup never exceeds 9 rows).
 pub const MAX_COMPLETIONS_MAX: u32 = 9;
 /// `max_completions` default.
 pub const MAX_COMPLETIONS_DEFAULT: u32 = 5;
+/// `fuzzy_min_chars` lower bound.
+pub const FUZZY_MIN_CHARS_MIN: u32 = 2;
+/// `fuzzy_min_chars` default.
+pub const FUZZY_MIN_CHARS_DEFAULT: u32 = 3;
 
 /// Behaviour options (the map-shaping options are already folded into the map).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -352,6 +363,15 @@ const AUTOCOMPLETE: &[OptionSpec] = &[
         kind: OptionKind::Integer { min: 1 },
         default: Some(DefaultValue::Int(MAX_COMPLETIONS_DEFAULT as i64)),
     },
+    flag("fuzzy", true),
+    OptionSpec {
+        name: "fuzzy_min_chars",
+        kind: OptionKind::Integer {
+            min: FUZZY_MIN_CHARS_MIN as i64,
+        },
+        default: Some(DefaultValue::Int(FUZZY_MIN_CHARS_DEFAULT as i64)),
+    },
+    flag("filter_profanity", true),
 ];
 
 /// Every `[options]` setting, in schema order.
@@ -733,6 +753,13 @@ fn resolve_with_preset(
                 MAX_COMPLETIONS_DEFAULT as i64,
             )
             .clamp(1, MAX_COMPLETIONS_MAX as i64) as u32,
+            fuzzy: opt_bool("autocomplete.fuzzy"),
+            fuzzy_min_chars: opt_int(
+                "autocomplete.fuzzy_min_chars",
+                FUZZY_MIN_CHARS_DEFAULT as i64,
+            )
+            .clamp(FUZZY_MIN_CHARS_MIN as i64, u32::MAX as i64) as u32,
+            filter_profanity: opt_bool("autocomplete.filter_profanity"),
         },
     };
 

@@ -206,9 +206,8 @@ pub struct StaticReport {
 pub fn evaluate_static(dict: &Dictionary, words: &[String], opts: &StaticOptions) -> StaticReport {
     let params = ScoreParams::default();
     let rank = RankCtx {
-        history: None,
-        today: Day(0),
-        params: &params,
+        hide_flagged: true,
+        ..RankCtx::new(Day(0), &params)
     };
     let mut r = StaticReport {
         words: words.len(),
@@ -277,6 +276,8 @@ pub struct AdaptiveOptions {
     pub start_day: u32,
     /// Ranking constants under test.
     pub params: ScoreParams,
+    /// Fuzzy rows fill free slots (as with the default `fuzzy = true`; never rejected).
+    pub fuzzy: bool,
 }
 
 impl Default for AdaptiveOptions {
@@ -288,6 +289,7 @@ impl Default for AdaptiveOptions {
             passes: 3,
             start_day: 20_000,
             params: ScoreParams::default(),
+            fuzzy: true,
         }
     }
 }
@@ -335,8 +337,9 @@ fn replay(
         let m = letters(word);
         let rank = RankCtx {
             history: learn.then_some(&history),
-            today,
-            params: &opts.params,
+            fuzzy: opts.fuzzy,
+            hide_flagged: true,
+            ..RankCtx::new(today, &opts.params)
         };
         let mut events: Vec<LearnEvent> = Vec::new();
         let mut accepted_at = None;
@@ -349,10 +352,16 @@ fn replay(
                     word: got[j].text.clone(),
                     kind: LearnKind::Accepted,
                 });
-                events.extend(got[..j].iter().map(|c| LearnEvent {
-                    word: c.text.clone(),
-                    kind: LearnKind::Skipped,
-                }));
+                // Fuzzy rows are never penalised (section 13).
+                events.extend(
+                    got[..j]
+                        .iter()
+                        .filter(|c| c.edits == 0)
+                        .map(|c| LearnEvent {
+                            word: c.text.clone(),
+                            kind: LearnKind::Skipped,
+                        }),
+                );
                 accepted_at = Some(l);
                 break;
             }
@@ -360,10 +369,15 @@ fn replay(
         if accepted_at.is_none() && m > min_l {
             // Typed out in full and committed: the list then visible is ignored.
             let got = dict.complete(word, opts.visible, &rank);
-            events.extend(got.iter().take(3).map(|c| LearnEvent {
-                word: c.text.clone(),
-                kind: LearnKind::Ignored,
-            }));
+            events.extend(
+                got.iter()
+                    .take(3)
+                    .filter(|c| c.edits == 0)
+                    .map(|c| LearnEvent {
+                        word: c.text.clone(),
+                        kind: LearnKind::Ignored,
+                    }),
+            );
         }
         if learn {
             for ev in &events {
@@ -403,6 +417,291 @@ pub fn evaluate_adaptive(
         frozen,
         history_len,
     }
+}
+
+/// Letters a typo may introduce (the Persian alphabet, no Arabic-only forms).
+const TYPO_ALPHABET: &[char] = &[
+    'ا', 'ب', 'پ', 'ت', 'ث', 'ج', 'چ', 'ح', 'خ', 'د', 'ذ', 'ر', 'ز', 'ژ', 'س', 'ش', 'ص', 'ض', 'ط',
+    'ظ', 'ع', 'غ', 'ف', 'ق', 'ک', 'گ', 'ل', 'م', 'ن', 'و', 'ه', 'ی',
+];
+
+/// The kinds of typo of the robustness run, in report order.
+pub const TYPO_KINDS: [&str; 4] = ["substitution", "deletion", "insertion", "transposition"];
+
+/// Settings of the typo-robustness run (docs/autocomplete.md 13).
+#[derive(Debug, Clone)]
+pub struct TypoOptions {
+    /// Prefix lengths (letters) at which one typo is made.
+    pub lengths: std::ops::RangeInclusive<usize>,
+    /// Completions requested per query (`max_completions`); hit@5 is reported.
+    pub limit: usize,
+    /// `fuzzy_min_chars` of the fuzzy-on side.
+    pub fuzzy_min_chars: usize,
+    /// Seed of the typo generator; the same seed gives the same queries.
+    pub seed: u64,
+}
+
+impl Default for TypoOptions {
+    fn default() -> Self {
+        TypoOptions {
+            lengths: 3..=5,
+            limit: 5,
+            fuzzy_min_chars: 3,
+            seed: 0x5EED,
+        }
+    }
+}
+
+/// One group of typo queries, fuzzy on vs off.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TypoStats {
+    /// Fuzzy matching on.
+    pub on: HitStats,
+    /// Fuzzy matching off (exact prefix only).
+    pub off: HitStats,
+}
+
+impl TypoStats {
+    fn add(&mut self, on: Option<usize>, off: Option<usize>) {
+        self.on.add(on);
+        self.off.add(off);
+    }
+}
+
+/// Result of [`evaluate_typos`].
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct TypoReport {
+    /// Words with more letters than the shortest prefix length (the ones queried).
+    pub evaluated: usize,
+    /// `(word, L)` pairs where no typo could be made that leaves a non-prefix of the word.
+    pub skipped: usize,
+    /// `(L, stats)`, ascending.
+    pub per_length: Vec<(usize, TypoStats)>,
+    /// Stats per kind, in [`TYPO_KINDS`] order.
+    pub per_kind: [TypoStats; 4],
+    /// All typo queries.
+    pub overall: TypoStats,
+    /// Latency of the fuzzy-on queries.
+    pub latency_on: Latency,
+    /// Latency of the fuzzy-off queries.
+    pub latency_off: Latency,
+}
+
+/// splitmix64: a small, well-mixed, seedable generator (no dependency, reproducible).
+struct Rng(u64);
+
+impl Rng {
+    fn for_query(seed: u64, word: &str, l: usize) -> Rng {
+        // FNV-1a of the word, so a query does not depend on the order of the set.
+        let mut h: u64 = 0xCBF2_9CE4_8422_2325;
+        for b in word.bytes() {
+            h = (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01B3);
+        }
+        Rng(seed ^ h ^ (l as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15))
+    }
+    fn next(&mut self) -> u64 {
+        self.0 = self.0.wrapping_add(0x9E37_79B9_7F4A_7C15);
+        let mut z = self.0;
+        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
+        z ^ (z >> 31)
+    }
+    fn below(&mut self, n: usize) -> usize {
+        (self.next() % n.max(1) as u64) as usize
+    }
+    fn letter_except(&mut self, not: char) -> char {
+        loop {
+            let c = TYPO_ALPHABET[self.below(TYPO_ALPHABET.len())];
+            if c != not {
+                return c;
+            }
+        }
+    }
+}
+
+/// `prefix` with one typo of `kind` (index into [`TYPO_KINDS`]) at a letter position chosen
+/// by `rng`; ZWNJs stay where they are. `None` if the prefix has too few letters.
+fn apply_typo(prefix: &str, kind: usize, rng: &mut Rng) -> Option<String> {
+    let mut cs: Vec<char> = prefix.chars().collect();
+    let letters: Vec<usize> = (0..cs.len()).filter(|&i| cs[i] != ZWNJ).collect();
+    if letters.is_empty() {
+        return None;
+    }
+    match kind {
+        0 => {
+            let i = letters[rng.below(letters.len())];
+            cs[i] = rng.letter_except(cs[i]);
+        }
+        1 => {
+            cs.remove(letters[rng.below(letters.len())]);
+        }
+        2 => {
+            let at = rng.below(cs.len() + 1);
+            let c = rng.letter_except(ZWNJ);
+            cs.insert(at, c);
+        }
+        _ => {
+            if letters.len() < 2 {
+                return None;
+            }
+            let j = rng.below(letters.len() - 1);
+            cs.swap(letters[j], letters[j + 1]);
+        }
+    }
+    Some(cs.into_iter().collect())
+}
+
+/// Typo robustness of section 13: for each word and each `L` in `opts.lengths` below its
+/// letter count, the correct prefix of `L` letters gets one seeded typo (kind and position
+/// random; a typo that leaves a prefix of the word, e.g. swapping equal letters, is redrawn
+/// up to 8 times, else the pair is skipped), then is queried with fuzzy matching on and off.
+/// Empty history; flagged words hidden.
+pub fn evaluate_typos(dict: &Dictionary, words: &[String], opts: &TypoOptions) -> TypoReport {
+    let params = ScoreParams::default();
+    let off = RankCtx {
+        hide_flagged: true,
+        ..RankCtx::new(Day(0), &params)
+    };
+    let on = RankCtx {
+        fuzzy: true,
+        fuzzy_min_chars: opts.fuzzy_min_chars,
+        ..off
+    };
+    let mut r = TypoReport::default();
+    let (mut ns_on, mut ns_off) = (Vec::new(), Vec::new());
+    let first = *opts.lengths.start();
+    for word in words {
+        let m = letters(word);
+        if m <= first.max(1) {
+            continue;
+        }
+        r.evaluated += 1;
+        let key = match_key(word);
+        for l in opts.lengths.clone().filter(|&l| l >= 1 && l < m) {
+            let correct = prefix_letters(word, l);
+            let mut rng = Rng::for_query(opts.seed, word, l);
+            let mut made = None;
+            for _ in 0..8 {
+                let kind = rng.below(TYPO_KINDS.len());
+                if let Some(t) = apply_typo(correct, kind, &mut rng) {
+                    let tk = match_key(&t);
+                    if !tk.is_empty() && !key.starts_with(&tk) {
+                        made = Some((kind, t));
+                        break;
+                    }
+                }
+            }
+            let Some((kind, typed)) = made else {
+                r.skipped += 1;
+                continue;
+            };
+            let t = Instant::now();
+            let got_on = dict.complete(&typed, opts.limit, &on);
+            ns_on.push(t.elapsed().as_nanos() as u64);
+            let t = Instant::now();
+            let got_off = dict.complete(&typed, opts.limit, &off);
+            ns_off.push(t.elapsed().as_nanos() as u64);
+            let pos_on = got_on.iter().position(|c| c.text == *word);
+            let pos_off = got_off.iter().position(|c| c.text == *word);
+            r.overall.add(pos_on, pos_off);
+            r.per_kind[kind].add(pos_on, pos_off);
+            match r.per_length.iter_mut().find(|(x, _)| *x == l) {
+                Some((_, s)) => s.add(pos_on, pos_off),
+                None => {
+                    let mut s = TypoStats::default();
+                    s.add(pos_on, pos_off);
+                    r.per_length.push((l, s));
+                }
+            }
+        }
+    }
+    r.per_length.sort_by_key(|(l, _)| *l);
+    r.latency_on = Latency::from_ns(ns_on);
+    r.latency_off = Latency::from_ns(ns_off);
+    r
+}
+
+impl TypoReport {
+    /// Human-readable summary.
+    pub fn to_text(&self) -> String {
+        let mut s = String::new();
+        let _ = writeln!(
+            s,
+            "typo robustness (one seeded typo in the prefix; {} words, {} pairs skipped)",
+            self.evaluated, self.skipped
+        );
+        let _ = writeln!(
+            s,
+            "{:>14} {:>8} {:>10} {:>10} {:>10} {:>10}",
+            "", "queries", "hit@1 on", "hit@1 off", "hit@5 on", "hit@5 off"
+        );
+        let mut row = |name: &str, t: &TypoStats| {
+            let _ = writeln!(
+                s,
+                "{:>14} {:>8} {:>10} {:>10} {:>10} {:>10}",
+                name,
+                t.on.queries,
+                pct(t.on.hit1_rate()),
+                pct(t.off.hit1_rate()),
+                pct(t.on.hit5_rate()),
+                pct(t.off.hit5_rate())
+            );
+        };
+        for (l, t) in &self.per_length {
+            row(&format!("L={l}"), t);
+        }
+        for (name, t) in TYPO_KINDS.iter().zip(&self.per_kind) {
+            row(name, t);
+        }
+        row("all", &self.overall);
+        for (name, l) in [("on", &self.latency_on), ("off", &self.latency_off)] {
+            let _ = writeln!(
+                s,
+                "fuzzy {name:>3} latency over {} calls: mean {:.1} us, p50 {:.1} us, p99 {:.1} us, max {:.1} us",
+                l.samples, l.mean_us, l.p50_us, l.p99_us, l.max_us
+            );
+        }
+        s
+    }
+
+    /// Machine-readable form.
+    pub fn to_json(&self) -> String {
+        let stats = |t: &TypoStats| {
+            format!(
+                "{{\"on\":{{{}}},\"off\":{{{}}}}}",
+                hit_json(&t.on),
+                hit_json(&t.off)
+            )
+        };
+        let per: Vec<String> = self
+            .per_length
+            .iter()
+            .map(|(l, t)| format!("{{\"L\":{l},\"stats\":{}}}", stats(t)))
+            .collect();
+        let kinds: Vec<String> = TYPO_KINDS
+            .iter()
+            .zip(&self.per_kind)
+            .map(|(k, t)| format!("\"{k}\":{}", stats(t)))
+            .collect();
+        format!(
+            "{{\"evaluated\":{},\"skipped\":{},\"per_length\":[{}],\"per_kind\":{{{}}},\
+             \"overall\":{},\"latency_us\":{{\"fuzzy_on\":{},\"fuzzy_off\":{}}}}}",
+            self.evaluated,
+            self.skipped,
+            per.join(","),
+            kinds.join(","),
+            stats(&self.overall),
+            latency_json(&self.latency_on),
+            latency_json(&self.latency_off)
+        )
+    }
+}
+
+fn latency_json(l: &Latency) -> String {
+    format!(
+        "{{\"samples\":{},\"mean\":{:.2},\"p50\":{:.2},\"p99\":{:.2},\"max\":{:.2}}}",
+        l.samples, l.mean_us, l.p50_us, l.p99_us, l.max_us
+    )
 }
 
 fn pct(x: f64) -> String {
@@ -562,6 +861,24 @@ mod tests {
         assert_eq!(set, ["سلام", "کتاب"]);
         let c = parse_corpus("# x\nسلام، دوست من! abc 12\n");
         assert_eq!(c, ["سلام", "دوست", "من"]);
+    }
+
+    #[test]
+    fn typos_are_seeded_and_of_each_kind() {
+        let p = "می\u{200C}خوا";
+        let n = match_key(p).chars().count();
+        for (kind, want) in [(0, n), (1, n - 1), (2, n + 1), (3, n)] {
+            let a = apply_typo(p, kind, &mut Rng::for_query(1, "x", 3)).unwrap();
+            let b = apply_typo(p, kind, &mut Rng::for_query(1, "x", 3)).unwrap();
+            assert_eq!(a, b, "same seed, same typo");
+            assert_eq!(match_key(&a).chars().count(), want, "kind {kind}");
+            assert!(a.contains(ZWNJ), "ZWNJ kept");
+            assert!(!a
+                .chars()
+                .any(|c| matches!(c, '\u{064A}' | '\u{0643}' | '\u{0629}')));
+        }
+        assert_eq!(apply_typo("ب", 3, &mut Rng::for_query(1, "x", 1)), None);
+        assert_eq!(apply_typo("", 0, &mut Rng::for_query(1, "x", 1)), None);
     }
 
     #[test]

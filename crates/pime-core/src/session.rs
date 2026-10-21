@@ -136,8 +136,10 @@ impl fmt::Debug for CompleterHandle {
 struct CompletionCache {
     prefix: String,
     limit: usize,
-    use_history: bool,
+    ctx: CompleteCtx,
     items: Vec<String>,
+    /// Parallel to `items` (0 = exact).
+    edits: Vec<u8>,
 }
 
 /// Composition state for one input context.
@@ -223,8 +225,8 @@ impl Session {
             }
             VK_ESCAPE if composing => {
                 let comps = self.visible_completions();
-                if self.list_visible() || !comps.is_empty() {
-                    for w in &comps {
+                if self.list_visible() || !comps.items.is_empty() {
+                    for w in exact_rows(&comps) {
                         self.record(w, LearnKind::Dismissed);
                     }
                     self.list_closed = true;
@@ -272,7 +274,7 @@ impl Session {
         let n = self.alternate_count();
         if index >= n {
             let comps = self.visible_completions();
-            if index - n < comps.len() {
+            if index - n < comps.items.len() {
                 return self.accept(index - n, "");
             }
             return self.state(false);
@@ -392,43 +394,54 @@ impl Session {
             self.highlight = None;
             return;
         };
-        let use_history = self.cfg.options().autocomplete.learning;
+        let ac = &self.cfg.options().autocomplete;
+        let ctx = CompleteCtx {
+            use_history: ac.learning,
+            fuzzy: ac.fuzzy,
+            fuzzy_min_chars: ac.fuzzy_min_chars as usize,
+            hide_flagged: ac.filter_profanity,
+        };
         if self
             .cache
             .as_ref()
-            .is_some_and(|c| c.prefix == r.text && c.limit == limit && c.use_history == use_history)
+            .is_some_and(|c| c.prefix == r.text && c.limit == limit && c.ctx == ctx)
         {
             return;
         }
-        let found = handle
-            .0
-            .complete(&r.text, limit, &CompleteCtx { use_history });
+        let found = handle.0.complete(&r.text, limit, &ctx);
         let mut items: Vec<String> = Vec::with_capacity(limit);
+        let mut edits: Vec<u8> = Vec::with_capacity(limit);
         for c in found {
             if items.len() >= limit {
                 break;
             }
-            if acceptable(&r.text, &c.text) && !items.contains(&c.text) {
+            if acceptable(&r.text, &c.text, c.edits) && !items.contains(&c.text) {
                 items.push(c.text);
+                edits.push(c.edits);
             }
         }
         self.cache = Some(CompletionCache {
             prefix: r.text,
             limit,
-            use_history,
+            ctx,
             items,
+            edits,
         });
         self.highlight = None;
     }
 
-    /// Completion rows for `r`, ignoring whether Esc closed the popup.
-    fn completion_items(&self, r: &Rendered) -> &[String] {
+    /// Completion rows for `r` and their edit counts, ignoring whether Esc
+    /// closed the popup.
+    fn completion_items(&self, r: &Rendered) -> (&[String], &[u8]) {
         let Some(limit) = self.completion_limit(r) else {
-            return &[];
+            return (&[], &[]);
         };
         match &self.cache {
-            Some(c) if c.prefix == r.text => &c.items[..c.items.len().min(limit)],
-            _ => &[],
+            Some(c) if c.prefix == r.text => {
+                let k = c.items.len().min(limit);
+                (&c.items[..k], &c.edits[..k])
+            }
+            _ => (&[], &[]),
         }
     }
 
@@ -436,18 +449,17 @@ impl Session {
         if self.list_closed {
             return None;
         }
-        let items = self.completion_items(r);
+        let (items, edits) = self.completion_items(r);
         (!items.is_empty()).then(|| CompletionList {
             items: items.to_vec(),
             highlighted: self.highlight.filter(|h| *h < items.len()),
+            edits: edits.to_vec(),
         })
     }
 
     /// The completion rows currently shown (empty if none).
-    fn visible_completions(&self) -> Vec<String> {
-        self.completions_for(&self.rendered())
-            .map(|c| c.items)
-            .unwrap_or_default()
+    fn visible_completions(&self) -> CompletionList {
+        self.completions_for(&self.rendered()).unwrap_or_default()
     }
 
     fn visible_highlight(&self) -> Option<usize> {
@@ -459,7 +471,7 @@ impl Session {
     /// `None` = v1 handling.
     fn move_completion_highlight(&mut self, up: bool) -> Option<Output> {
         let r = self.rendered();
-        let k = self.completion_items(&r).len();
+        let k = self.completion_items(&r).0.len();
         if k == 0 {
             return None;
         }
@@ -493,10 +505,11 @@ impl Session {
         }
     }
 
-    /// `Ignored` for the first rows of `comps`, except one equal to `committed`.
-    fn record_ignored(&mut self, comps: &[String], committed: &str) {
+    /// `Ignored` for the first exact rows of `comps`, except one equal to
+    /// `committed`. Fuzzy rows are never penalised.
+    fn record_ignored(&mut self, comps: &CompletionList, committed: &str) {
         let committed = match_key(committed);
-        for w in comps.iter().take(IGNORED_ROWS) {
+        for w in exact_rows(comps).take(IGNORED_ROWS) {
             if match_key(w) != committed {
                 self.record(w, LearnKind::Ignored);
             }
@@ -524,10 +537,16 @@ impl Session {
     /// Commits completion row `j` of the visible list, followed by `then`.
     fn accept(&mut self, j: usize, then: &str) -> Output {
         let comps = self.visible_completions();
-        let Some(word) = comps.get(j).cloned() else {
+        let Some(word) = comps.items.get(j).cloned() else {
             return self.state(true);
         };
-        for w in &comps[..j] {
+        // Fuzzy rows above the accepted one are not penalised.
+        let above = CompletionList {
+            items: comps.items[..j].to_vec(),
+            highlighted: None,
+            edits: comps.edits[..j].to_vec(),
+        };
+        for w in exact_rows(&above) {
             self.record(w, LearnKind::Skipped);
         }
         self.record(&word, LearnKind::Accepted);
@@ -589,7 +608,7 @@ impl Session {
     /// visible completions count as ignored.
     fn commit_typed(&mut self, then: String, eaten: bool) -> Output {
         let comps = self.visible_completions();
-        if !comps.is_empty() {
+        if !comps.items.is_empty() {
             let committed = self.committed_text(&then);
             self.record_ignored(&comps, &committed);
         }
@@ -687,12 +706,13 @@ impl Session {
         let lower = c.to_ascii_lowercase();
         if let Some(d) = c.to_digit(10).filter(|d| *d >= 1) {
             let comps = self.visible_completions();
-            if self.cfg.options().number_select && (self.list_visible() || !comps.is_empty()) {
+            if self.cfg.options().number_select && (self.list_visible() || !comps.items.is_empty())
+            {
                 let row = d as usize - 1;
                 let n = self.alternate_count();
                 if row >= n {
                     // Out of range: eat the digit rather than guess what was meant.
-                    return if row - n < comps.len() {
+                    return if row - n < comps.items.len() {
                         self.accept(row - n, "")
                     } else {
                         self.state(true)
@@ -743,15 +763,34 @@ impl Session {
     }
 }
 
-/// Defence in depth over the completer's contract: a completion must extend
-/// the preedit, and the part it adds must not contain Arabic-only letters (D23).
-fn acceptable(preedit: &str, text: &str) -> bool {
-    match text.strip_prefix(preedit) {
-        Some(tail) if !tail.is_empty() => !tail
-            .chars()
-            .any(|c| matches!(c, '\u{064A}' | '\u{0649}' | '\u{0643}' | '\u{0629}')),
-        _ => false,
-    }
+/// The exact (non-fuzzy) rows of `comps`, in order.
+fn exact_rows(comps: &CompletionList) -> impl Iterator<Item = &String> {
+    comps
+        .items
+        .iter()
+        .zip(&comps.edits)
+        .filter(|(_, e)| **e == 0)
+        .map(|(w, _)| w)
+}
+
+/// Defence in depth over the completer's contract: an exact completion must
+/// extend the preedit, and the part it adds must not contain Arabic-only
+/// letters (D23). A fuzzy one replaces the preedit, so it must differ from it
+/// and contain no Arabic-only letter at all.
+fn acceptable(preedit: &str, text: &str, edits: u8) -> bool {
+    let added = if edits == 0 {
+        match text.strip_prefix(preedit) {
+            Some(tail) if !tail.is_empty() => tail,
+            _ => return false,
+        }
+    } else if text.is_empty() || text == preedit {
+        return false;
+    } else {
+        text
+    };
+    !added
+        .chars()
+        .any(|c| matches!(c, '\u{064A}' | '\u{0649}' | '\u{0643}' | '\u{0629}'))
 }
 
 #[cfg(test)]

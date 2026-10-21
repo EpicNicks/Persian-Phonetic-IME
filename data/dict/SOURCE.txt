@@ -4,7 +4,7 @@ wordlist: best (resolves to small_fa.msgpack.gz; no large_fa exists)
 generated: 2026-10-21
 script: tools/wordlist/build_wordlist.py (python -I, in a venv)
 source entries: 31389
-rows in fa-wordfreq.tsv: 27839 (format: word<TAB>zipf, 2 decimals, sorted descending)
+rows in fa-wordfreq.tsv: 27870, 46 flagged p (format: word<TAB>zipf[<TAB>p], 2 decimals, sorted descending)
 rows in fixture.tsv: 300
 rows in extra.tsv: 97 (hand-curated, not from wordfreq)
 licence: wordfreq data CC BY-SA 4.0, wordfreq code Apache-2.0 (see NOTICE.txt)

@@ -137,6 +137,9 @@ fn behaviour_options() {
             predict_min_chars: 3,
             learning: false,
             max_completions: 5,
+            fuzzy: true,
+            fuzzy_min_chars: 3,
+            filter_profanity: true,
         }
     );
     let c = &cfg.config;
@@ -463,8 +466,22 @@ fn option_specs_are_the_validators_source() {
             "enabled",
             "predict_min_chars",
             "learning",
-            "max_completions"
+            "max_completions",
+            "fuzzy",
+            "fuzzy_min_chars",
+            "filter_profanity"
         ]
+    );
+    let fmin = autocomplete_specs()[5];
+    assert_eq!(fmin.kind, OptionKind::Integer { min: 2 });
+    assert_eq!(fmin.default_value(), Some(OptionValue::Integer(3)));
+    assert_eq!(
+        autocomplete_specs()[4].default_value(),
+        Some(OptionValue::Bool(true))
+    );
+    assert_eq!(
+        autocomplete_specs()[6].default_value(),
+        Some(OptionValue::Bool(true))
     );
     let min = autocomplete_specs()[1];
     assert_eq!(min.kind, OptionKind::Integer { min: 1 });
@@ -472,6 +489,62 @@ fn option_specs_are_the_validators_source() {
     let max = autocomplete_specs()[3];
     assert_eq!(max.kind, OptionKind::Integer { min: 1 });
     assert_eq!(max.default_value(), Some(OptionValue::Integer(5)));
+}
+
+#[test]
+fn fuzzy_and_profanity_options() {
+    let d = ResolvedConfig::default();
+    let ac = d.options().autocomplete;
+    assert!(ac.fuzzy && ac.filter_profanity);
+    assert_eq!(ac.fuzzy_min_chars, 3);
+    assert_eq!(
+        d.option_value("autocomplete.fuzzy"),
+        Some(OptionValue::Bool(true))
+    );
+    assert_eq!(
+        d.option_value("autocomplete.fuzzy_min_chars"),
+        Some(OptionValue::Integer(3))
+    );
+    assert_eq!(
+        d.option_value("autocomplete.filter_profanity"),
+        Some(OptionValue::Bool(true))
+    );
+    let loaded =
+        load("[autocomplete]\nfuzzy = false\nfuzzy_min_chars = 2\nfilter_profanity = false\n");
+    assert!(loaded.issues.is_empty(), "{}", text_of(&loaded.issues));
+    let ac = loaded.config.options().autocomplete;
+    assert!(!ac.fuzzy && !ac.filter_profanity);
+    assert_eq!(ac.fuzzy_min_chars, 2);
+    assert_eq!(
+        load("[autocomplete]\nfuzzy_min_chars = 12\n")
+            .config
+            .options()
+            .autocomplete
+            .fuzzy_min_chars,
+        12
+    );
+    for bad in ["1", "0", "-4"] {
+        let loaded = load(&format!(
+            "[autocomplete]\nfuzzy_min_chars = {bad}\nfuzzy = false\n"
+        ));
+        assert_eq!(loaded.issues.len(), 1, "{}", text_of(&loaded.issues));
+        let i = &loaded.issues[0];
+        assert_eq!(i.kind, IssueKind::InvalidValue);
+        assert_eq!(
+            i.message,
+            format!("fuzzy_min_chars must be at least 2, not {bad}.")
+        );
+        let ac = loaded.config.options().autocomplete;
+        assert_eq!(ac.fuzzy_min_chars, 3, "default kept");
+        assert!(!ac.fuzzy, "the rest still applies");
+    }
+    let i = only_issue("[autocomplete]\nfuzzy_min_chars = 2.5\n");
+    assert!(i.message.contains("whole number"), "{i:?}");
+    let i = only_issue("[autocomplete]\nfilter_profanity = \"yes\"\n");
+    assert_eq!(
+        i.message,
+        "filter_profanity must be true or false (for example true), not text."
+    );
 }
 
 #[test]

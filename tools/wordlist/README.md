@@ -1,6 +1,6 @@
 # Persian word list pipeline
 
-Produces `data/dict/fa-wordfreq.tsv` (`word<TAB>zipf`, zipf = log10 of occurrences per billion words,
+Produces `data/dict/fa-wordfreq.tsv` (`word<TAB>zipf[<TAB>p]`, zipf = log10 of occurrences per billion words,
 2 decimals, sorted descending) from the Python `wordfreq` package (decision D15).
 
 ## Regenerate
@@ -28,12 +28,22 @@ with Latin letters, any digits, other scripts or symbols dropped; runs of 3+ ide
 letters dropped; single letters other than و dropped. ZWNJ: repeats collapsed, tokens that
 start or end with ZWNJ (tokeniser fragments like `می‌`) dropped rather than merged (the base
 word is already counted), ZWNJ after a non-joining letter removed. Spaced and glued variants
-(میروم / می‌روم) remain separate entries. Bare morphemes (`ها`, `های`, `می`, `تر`, `ام`, ... see `MORPHEMES` in the script) and the
-words in `blocklist.txt` are dropped.
+(میروم / می‌روم) remain separate entries. Bare morphemes (`ها`, `های`, `می`, `تر`, `ام`, ... see `MORPHEMES` in the script) are dropped.
+
+## Profanity flag
+
+Words listed in `blocklist.txt` (one normalised word per line, `#` comments; the user may
+extend it) are NOT dropped. They are emitted with a third tab-separated column `p`; all other
+rows keep two columns. `xtask build-dict` passes the column through to `dict.bin` (format v2,
+PRIOR bit 7), and the runtime setting `[autocomplete] filter_profanity` (default true, "Hide
+vulgar words" in Settings) hides flagged words from suggestions; turning it off makes them
+matchable again. Only unambiguous vulgarity plus words the user chose to flag are listed;
+everyday ambiguous words (تخم, ناموس, بکن/بکنم/...) are not. `fixture.tsv` never contains
+flagged words; `extra.tsv` has no flags.
 
 ## Outputs
 
-- `fa-wordfreq.tsv`: 27,839 words.
+- `fa-wordfreq.tsv`: 27,870 words, 46 of them flagged `p`.
 - `fixture.tsv`: top 300, for unit tests.
 - `extra.tsv`: hand-curated ZWNJ forms missing from wordfreq (not generated).
 - `eval-prefixes.tsv`: 300 `prefix<TAB>expected` pairs (prefix length 2-4) from ranks 10-4000.

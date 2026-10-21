@@ -47,6 +47,8 @@ pub struct Snapshot {
     pub labels: Vec<String>,
     /// Rows from this index on are word completions (below the divider).
     pub first_completion: usize,
+    /// Parallel to the completion rows (`items[first_completion..]`): approximate matches.
+    pub fuzzy: Vec<bool>,
     /// Selected row; `None` when nothing is highlighted.
     pub highlighted: Option<usize>,
     /// Row rectangles in client coordinates.
@@ -98,6 +100,22 @@ fn int_array(vals: &[i32]) -> *mut SAFEARRAY {
 
 fn is_completion(s: &Snapshot, i: usize) -> bool {
     i >= s.first_completion && i < s.items.len()
+}
+
+fn is_fuzzy(s: &Snapshot, i: usize) -> bool {
+    is_completion(s, i)
+        && s.fuzzy
+            .get(i - s.first_completion)
+            .copied()
+            .unwrap_or(false)
+}
+
+fn help_text(s: &Snapshot, i: usize) -> Option<&'static str> {
+    if is_fuzzy(s, i) {
+        Some("completion, approximate match")
+    } else {
+        is_completion(s, i).then_some("completion")
+    }
 }
 
 /// The selected row, if it is a live row.
@@ -340,8 +358,8 @@ impl IRawElementProviderSimple_Impl for ItemProvider_Impl {
                 UIA_AutomationIdPropertyId => {
                     VARIANT::from(BSTR::from(format!("PimeCandidate{}", self.index + 1)))
                 }
-                UIA_HelpTextPropertyId if is_completion(&s, self.index) => {
-                    VARIANT::from(BSTR::from("completion"))
+                UIA_HelpTextPropertyId if help_text(&s, self.index).is_some() => {
+                    VARIANT::from(BSTR::from(help_text(&s, self.index).unwrap_or("")))
                 }
                 UIA_IsEnabledPropertyId => VARIANT::from(true),
                 UIA_IsKeyboardFocusablePropertyId | UIA_HasKeyboardFocusPropertyId => {
@@ -533,6 +551,7 @@ mod tests {
             items: vec!["س".into(), "ص".into(), "سلام".into(), "سلامت".into()],
             labels: vec!["sin".into(), "sad".into()],
             first_completion: 2,
+            fuzzy: vec![false, true],
             highlighted: Some(3),
             rows: (0..4)
                 .map(|i| Rect::new(0, i * 10, 10, i * 10 + 10))
@@ -554,7 +573,7 @@ mod tests {
         };
         assert_eq!(props(1), ("ص, sad".to_owned(), String::new()));
         assert_eq!(props(2), ("سلام".to_owned(), "completion".to_owned()));
-        assert_eq!(props(3).1, "completion");
+        assert_eq!(props(3).1, "completion, approximate match");
         // Siblings run across the divider.
         let item: IRawElementProviderFragment = ItemProvider::new(&sh, 1).into();
         // SAFETY: call on our own provider.

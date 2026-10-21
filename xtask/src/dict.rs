@@ -105,6 +105,10 @@ pub fn build(args: &[String]) -> Result<(), String> {
     }
     std::fs::write(&a.out, &bytes).map_err(|e| format!("cannot write {}: {e}", a.out.display()))?;
     println!("{report:#?}");
+    println!(
+        "flagged (vulgar, hidden when filter_profanity): {}",
+        report.flagged
+    );
     println!("wrote {} ({} bytes)", a.out.display(), bytes.len());
     Ok(())
 }

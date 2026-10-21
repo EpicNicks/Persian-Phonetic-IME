@@ -11,6 +11,12 @@ Invariants live in `src/lib.rs` (`check_session`, `check_config`).
   completer changes. Completions extend the preedit, are unique and bounded (`max_completions`,
   9 rows), respect policy/`predict_min_chars`/pending letters, have no Arabic-only letters beyond
   the typed prefix; learn events only at episode end, deduplicated, and only for shown rows.
+  Fuzzy rows (byte 1 bits 6-7 pick `fuzzy`/`fuzzy_min_chars`; event `0xF5` reloads them): exact rows
+  start with the preedit, fuzzy rows never equal or extend it, hold no U+064A/U+0649/U+0643/U+0629,
+  respect `fuzzy_min_chars` and the edit budget, follow exact rows, and are never Skipped/Ignored/
+  Dismissed. Typo seeds: `fuzz/seeds/session_complete`.
+- `dict_from_bytes` / `dict_build_tsv` also query with fuzzy on/off and `hide_flagged` both ways
+  (flagged words in the base dictionary; TSV seeds with a `flags` column in `fuzz/seeds/dict_build_tsv`).
 - `dict_from_bytes`: raw bytes or a valid `dict.bin` with bytes overwritten/truncated; accepted
   files answer `complete` within the trait contract (pime-dict).
 - `dict_build_tsv`: bytes as TSV for `build_from_tsv`; output always loads, matches its report,

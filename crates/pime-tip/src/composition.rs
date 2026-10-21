@@ -800,6 +800,7 @@ mod tests {
             completions: Some(CompletionList {
                 items: vec!["سلام".into(), "سلامت".into()],
                 highlighted: comp_hl,
+                edits: vec![0, 0],
             }),
             preedit: "س".into(),
             ..list(&["س", "ص", "ث"], alt_hl)
@@ -1226,6 +1227,64 @@ mod tests {
             "nothing persisted"
         );
         rt.shutdown();
+    }
+
+    #[test]
+    fn typo_prefix_offers_fuzzy_row_and_learns_only_accepted() {
+        let mut r = ac_rig();
+        r.typ("slm");
+        let shown = comps_shown(&r);
+        assert!(shown.contains(&"سلام".to_string()), "{shown:?}");
+        let list = r.doc.popup.as_ref().unwrap().completions.clone().unwrap();
+        assert!(list.edits.iter().all(|e| *e > 0), "{:?}", list.edits);
+        r.key(KeyEvent::plain(VK_DOWN));
+        let idx = shown.iter().position(|w| w == "سلام").unwrap();
+        for _ in 0..idx {
+            r.key(KeyEvent::plain(VK_DOWN));
+        }
+        r.key(KeyEvent::plain(VK_RETURN));
+        assert_eq!(r.doc.text, "سلام");
+        assert!(r.doc.comp.is_none());
+        assert_eq!(r.learned, [ev(LearnKind::Accepted, "سلام")]);
+    }
+
+    #[test]
+    fn fuzzy_rows_are_never_skipped_or_dismissed() {
+        let mut r = ac_rig();
+        r.typ("slm");
+        r.key(KeyEvent::plain(VK_ESCAPE));
+        r.key(KeyEvent::plain(VK_SPACE));
+        assert!(r.learned.is_empty(), "{:?}", r.learned);
+    }
+
+    #[test]
+    fn config_reload_toggles_fuzzy_and_min_chars() {
+        let off = format!(
+            "{AC_ON}fuzzy = false
+"
+        );
+        let min4 = format!(
+            "{AC_ON}fuzzy_min_chars = 4
+"
+        );
+        let cfg = |t: &str| Arc::new(load_config_with_base("qamooscheh", t).config);
+        let mut r = ac_rig();
+        r.typ("slm");
+        assert!(!comps_shown(&r).is_empty());
+        for (toml, expect) in [(off.as_str(), false), (min4.as_str(), false), (AC_ON, true)] {
+            let mut s = session("qamooscheh", toml);
+            s.set_completer(Some(Arc::new(words())));
+            let mut r = Rig::new(s);
+            r.typ("slm");
+            assert_eq!(!comps_shown(&r).is_empty(), expect, "{toml}");
+        }
+        // A live reload through set_config takes effect on the next preedit.
+        let mut s = session("qamooscheh", AC_ON);
+        s.set_completer(Some(Arc::new(words())));
+        s.set_config(cfg(&off));
+        let mut r = Rig::new(s);
+        r.typ("slm");
+        assert!(comps_shown(&r).is_empty());
     }
 
     #[test]

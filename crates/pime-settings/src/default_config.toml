@@ -96,6 +96,15 @@ learning = true
 # How many suggestions to show at most (1-9).
 max_completions = 5
 
+# Offer corrections for small typing mistakes in the word you are typing: true or false.
+fuzzy = true
+
+# Letters typed before typo corrections are considered (2-10).
+fuzzy_min_chars = 3
+
+# Keep vulgar words out of the suggestions: true or false.
+filter_profanity = true
+
 # Your own letter map changes, applied last. Each entry is a Latin key (1 to 3
 # characters, in the section for its length) and the letters it offers; the first
 # letter is typed by default, the rest appear in the list of alternatives.

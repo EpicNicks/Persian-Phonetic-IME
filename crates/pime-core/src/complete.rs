@@ -7,8 +7,10 @@
 /// Implemented by pime-dict. Called on the key path: no I/O, no blocking beyond short
 /// in-memory locks, target < 0.5 ms. Must not panic on any input.
 pub trait Completer: Send + Sync {
-    /// At most `limit` completions of `prefix` (the preedit), best first. Every `text`
-    /// starts with `prefix` verbatim, differs from it, and is unique in the result.
+    /// At most `limit` completions of `prefix` (the preedit), best first, unique by `text`.
+    /// Exact rows (`edits == 0`) come first; their `text` starts with `prefix` verbatim
+    /// and differs from it. Fuzzy rows (`edits > 0`, only if `ctx.fuzzy`) follow; their
+    /// `text` is the dictionary display form and replaces the whole preedit.
     fn complete(&self, prefix: &str, limit: usize, ctx: &CompleteCtx) -> Vec<Completion>;
 }
 
@@ -17,15 +19,39 @@ pub trait Completer: Send + Sync {
 pub struct CompleteCtx {
     /// Whether learned history may influence ranking (`cfg.autocomplete.learning`).
     pub use_history: bool,
+    /// Whether typo-tolerant (edit-distance) matches may fill remaining slots
+    /// (`cfg.autocomplete.fuzzy`).
+    pub fuzzy: bool,
+    /// Letters of the preedit's match key needed before fuzzy matching is tried
+    /// (`cfg.autocomplete.fuzzy_min_chars`).
+    pub fuzzy_min_chars: usize,
+    /// Skip dictionary words flagged as vulgar (`cfg.autocomplete.filter_profanity`).
+    pub hide_flagged: bool,
+}
+
+impl Default for CompleteCtx {
+    /// The configuration defaults: history used, fuzzy on from 3 letters, flagged hidden.
+    fn default() -> Self {
+        CompleteCtx {
+            use_history: true,
+            fuzzy: true,
+            fuzzy_min_chars: 3,
+            hide_flagged: true,
+        }
+    }
 }
 
 /// One completion returned by a [`Completer`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct Completion {
-    /// The full word to commit; starts with the queried prefix.
+    /// The full word to commit; starts with the queried prefix when `edits == 0`,
+    /// otherwise it replaces the whole preedit.
     pub text: String,
     /// Ranking score (higher is better); informational for the session.
     pub score: f32,
+    /// Edit distance from the preedit to the best prefix of the word; 0 = exact
+    /// prefix completion.
+    pub edits: u8,
 }
 
 /// The completion section of the popup.
@@ -36,6 +62,8 @@ pub struct CompletionList {
     pub items: Vec<String>,
     /// The highlighted completion; `None` means the typed text is "selected".
     pub highlighted: Option<usize>,
+    /// Parallel to `items`: 0 = exact prefix completion, else the fuzzy edit distance.
+    pub edits: Vec<u8>,
 }
 
 /// A learning signal for one dictionary word, emitted when an episode ends.
@@ -147,8 +175,55 @@ pub fn completable(preedit: &str) -> bool {
         && preedit.chars().any(|c| c != ZWNJ)
 }
 
+/// Largest edit distance a fuzzy match may have for a match key of `n` letters
+/// (`docs/autocomplete.md` 13).
+pub fn fuzzy_max_edits(n: usize) -> usize {
+    if n <= 5 {
+        1
+    } else {
+        2
+    }
+}
+
+/// The smallest Damerau-Levenshtein distance (optimal string alignment: insert,
+/// delete, substitute, adjacent transposition, each cost 1) between `key` and any
+/// prefix of `word` (both match keys), or `None` if that exceeds `max`.
+pub fn prefix_edit_distance(key: &str, word: &str, max: usize) -> Option<usize> {
+    let a: Vec<char> = key.chars().collect();
+    let b: Vec<char> = word.chars().collect();
+    let n = a.len();
+    // One row per prefix of `word`; column `i` is the prefix of `key` of length `i`.
+    let mut prev2: Vec<usize> = Vec::new();
+    let mut prev: Vec<usize> = (0..=n).collect();
+    let mut best = prev[n];
+    for j in 1..=b.len() {
+        let mut cur = vec![j; n + 1];
+        for i in 1..=n {
+            let cost = usize::from(a[i - 1] != b[j - 1]);
+            let mut d = (prev[i] + 1).min(cur[i - 1] + 1).min(prev[i - 1] + cost);
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                d = d.min(prev2[i - 2] + 1);
+            }
+            cur[i] = d;
+        }
+        best = best.min(cur[n]);
+        // Once every cell of a row is over budget, no longer prefix of `word` can
+        // come back within it (a transposition from two rows up would also have
+        // left a cell within budget in this row).
+        if cur.iter().all(|d| *d > max) {
+            break;
+        }
+        prev2 = std::mem::replace(&mut prev, cur);
+    }
+    (best <= max).then_some(best)
+}
+
 /// Fixture completer for goldens, fuzz, demo, settings "try typing": linear scan, match by
 /// `match_key` prefix, output via `complete_with_zwnj_rule`, order by score desc then text.
+/// If fewer than `limit` exact matches exist, `ctx.fuzzy` is set and the key has at least
+/// `ctx.fuzzy_min_chars` letters, fuzzy matches (`docs/autocomplete.md` 13) fill the rest,
+/// ordered by edits, score desc, shorter display, display. Ignores `ctx.use_history` and
+/// `ctx.hide_flagged` (the fixture has no history or flags).
 #[derive(Debug, Clone, Default)]
 pub struct ListCompleter {
     words: Vec<(String, f32)>,
@@ -164,8 +239,9 @@ impl ListCompleter {
 }
 
 impl Completer for ListCompleter {
-    fn complete(&self, prefix: &str, limit: usize, _ctx: &CompleteCtx) -> Vec<Completion> {
-        if limit == 0 || match_key(prefix).is_empty() {
+    fn complete(&self, prefix: &str, limit: usize, ctx: &CompleteCtx) -> Vec<Completion> {
+        let key = match_key(prefix);
+        if limit == 0 || key.is_empty() {
             return Vec::new();
         }
         let mut found: Vec<Completion> = self
@@ -175,6 +251,7 @@ impl Completer for ListCompleter {
                 complete_with_zwnj_rule(prefix, w).map(|text| Completion {
                     text,
                     score: *score,
+                    edits: 0,
                 })
             })
             .collect();
@@ -184,15 +261,48 @@ impl Completer for ListCompleter {
                 .then_with(|| a.text.cmp(&b.text))
         });
         let mut out: Vec<Completion> = Vec::with_capacity(limit.min(found.len()));
-        for c in found {
-            if out.len() >= limit {
-                break;
-            }
-            if !out.iter().any(|o| o.text == c.text) {
-                out.push(c);
-            }
+        push_unique(&mut out, found, limit);
+        let n = key.chars().count();
+        if out.len() < limit && ctx.fuzzy && n >= ctx.fuzzy_min_chars {
+            let max = fuzzy_max_edits(n);
+            let mut fuzzy: Vec<Completion> = self
+                .words
+                .iter()
+                .filter_map(|(w, score)| {
+                    let wk = match_key(w);
+                    if wk == key {
+                        return None;
+                    }
+                    let d = prefix_edit_distance(&key, &wk, max).filter(|d| *d >= 1)?;
+                    Some(Completion {
+                        text: w.clone(),
+                        score: *score,
+                        edits: d as u8,
+                    })
+                })
+                .collect();
+            fuzzy.sort_by(|a, b| {
+                a.edits
+                    .cmp(&b.edits)
+                    .then_with(|| b.score.total_cmp(&a.score))
+                    .then_with(|| a.text.chars().count().cmp(&b.text.chars().count()))
+                    .then_with(|| a.text.cmp(&b.text))
+            });
+            push_unique(&mut out, fuzzy, limit);
         }
         out
+    }
+}
+
+/// Appends `found` to `out` up to `limit` entries, skipping texts already present.
+fn push_unique(out: &mut Vec<Completion>, found: Vec<Completion>, limit: usize) {
+    for c in found {
+        if out.len() >= limit {
+            break;
+        }
+        if !out.iter().any(|o| o.text == c.text) {
+            out.push(c);
+        }
     }
 }
 
@@ -245,7 +355,7 @@ mod tests {
             ("سلامت".to_string(), 1.0),
             ("سل".to_string(), 9.0),
         ]);
-        let ctx = CompleteCtx { use_history: true };
+        let ctx = CompleteCtx::default();
         let got: Vec<String> = c
             .complete("سل", 9, &ctx)
             .into_iter()
@@ -255,5 +365,75 @@ mod tests {
         assert_eq!(c.complete("سل", 1, &ctx).len(), 1);
         assert!(c.complete("سل", 0, &ctx).is_empty());
         assert!(c.complete("", 5, &ctx).is_empty());
+    }
+
+    #[test]
+    fn prefix_edit_distance_cases() {
+        let d = |k: &str, w: &str| prefix_edit_distance(k, w, 2);
+        assert_eq!(d("سلم", "سلام"), Some(1), "deletion");
+        assert_eq!(d("کتب", "کتاب"), Some(1));
+        assert_eq!(d("سلا", "سلام"), Some(0), "exact prefix");
+        assert_eq!(d("سال", "سلام"), Some(1), "transposition");
+        assert_eq!(d("سکام", "سلامت"), Some(1), "substitution");
+        assert_eq!(d("سسلا", "سلام"), Some(1), "insertion");
+        assert_eq!(d("ابپت", "سلام"), None);
+        assert_eq!(prefix_edit_distance("سکم", "سلام", 1), None);
+        assert_eq!(prefix_edit_distance("", "سلام", 0), Some(0));
+        assert_eq!(prefix_edit_distance("سلم", "", 3), Some(3));
+        assert_eq!(fuzzy_max_edits(3), 1);
+        assert_eq!(fuzzy_max_edits(5), 1);
+        assert_eq!(fuzzy_max_edits(6), 2);
+    }
+
+    #[test]
+    fn list_completer_fuzzy() {
+        let c = ListCompleter::new([
+            ("سلام".to_string(), 5.0),
+            ("سالم".to_string(), 3.0),
+            ("سلامت".to_string(), 4.2),
+            ("سلم".to_string(), 1.0),
+            ("سلیم".to_string(), 2.0),
+        ]);
+        let ctx = CompleteCtx::default();
+        let got = |p: &str, limit: usize, ctx: &CompleteCtx| -> Vec<(String, u8)> {
+            c.complete(p, limit, ctx)
+                .into_iter()
+                .map(|c| (c.text, c.edits))
+                .collect()
+        };
+        // Exact first; the preedit's own word is excluded; fuzzy by edits then score.
+        assert_eq!(
+            got("سلم", 9, &ctx),
+            [
+                ("سلام".to_string(), 1),
+                ("سلامت".to_string(), 1),
+                ("سالم".to_string(), 1),
+                ("سلیم".to_string(), 1),
+            ]
+        );
+        assert_eq!(got("سل", 9, &ctx).iter().filter(|r| r.1 > 0).count(), 0);
+        let off = CompleteCtx {
+            fuzzy: false,
+            ..ctx
+        };
+        assert!(got("سلم", 9, &off).is_empty());
+        let high = CompleteCtx {
+            fuzzy_min_chars: 4,
+            ..ctx
+        };
+        assert!(got("سلم", 9, &high).is_empty());
+        // Fuzzy only fills slots the exact path left.
+        assert_eq!(
+            got("سلا", 2, &ctx).iter().map(|r| r.1).collect::<Vec<_>>(),
+            [0, 0]
+        );
+        assert_eq!(
+            got("سلا", 3, &ctx),
+            [
+                ("سلام".to_string(), 0),
+                ("سلامت".to_string(), 0),
+                ("سالم".to_string(), 1),
+            ]
+        );
     }
 }

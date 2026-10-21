@@ -10,7 +10,7 @@ use unicode_normalization::UnicodeNormalization;
 
 use crate::dict::top_order;
 use crate::format::{
-    HEADER_LEN, MAGIC, MAX_FILE, MAX_PRIOR, SECTIONS, TOP_COUNT, TOP_THRESHOLD, VERSION,
+    FLAGGED, HEADER_LEN, MAGIC, MAX_FILE, MAX_PRIOR, SECTIONS, TOP_COUNT, TOP_THRESHOLD, VERSION,
 };
 
 /// Build limits and INFO metadata.
@@ -54,6 +54,8 @@ pub struct BuildReport {
     pub with_zwnj: usize,
     /// Output size in bytes.
     pub bytes: usize,
+    /// Output words flagged as vulgar (`p` in the flags column of any merged line).
+    pub flagged: usize,
 }
 
 /// Why a build failed. Line errors carry the 1-based input and line number, never text.
@@ -151,6 +153,8 @@ pub(crate) fn normalise(word: &str) -> Option<(String, String)> {
 #[derive(Default)]
 struct Acc {
     total: f64,
+    /// Any merged line carried the `p` flag.
+    flagged: bool,
     /// Display variants with their summed frequency.
     variants: Vec<(String, f64)>,
 }
@@ -159,9 +163,12 @@ struct Word {
     key: String,
     display: String,
     prior: u8,
+    flagged: bool,
 }
 
-/// Build `dict.bin` v1 from one or more TSV inputs (`word<TAB>zipf`), merged in order.
+/// Build `dict.bin` v2 from one or more TSV inputs (`word<TAB>zipf[<TAB>flags]`), merged in
+/// order. Flags are ASCII letters: `p` marks a vulgar word (OR-merged per key); other letters
+/// are reserved and ignored.
 pub fn build_from_tsv(
     inputs: &mut [&mut dyn BufRead],
     opts: &BuildOptions,
@@ -204,8 +211,12 @@ pub fn build_from_tsv(
             let mut fields = text.split('\t');
             let word = fields.next().unwrap_or("").trim_matches(' ');
             let zipf = fields.next().ok_or(err("missing tab"))?.trim();
+            let flags = fields.next().unwrap_or("").trim();
+            if !flags.bytes().all(|b| b.is_ascii_alphabetic()) {
+                return Err(err("flags are not letters"));
+            }
             if fields.next().is_some_and(|f| !f.trim().is_empty()) {
-                return Err(err("more than two fields"));
+                return Err(err("more than three fields"));
             }
             if word.is_empty() {
                 return Err(err("empty word"));
@@ -224,6 +235,7 @@ pub fn build_from_tsv(
                 report.merged += 1;
             }
             a.total += freq;
+            a.flagged |= flags.contains('p');
             match a.variants.iter_mut().find(|(d, _)| *d == display) {
                 Some(v) => v.1 += freq,
                 None => a.variants.push((display, freq)),
@@ -255,6 +267,7 @@ pub fn build_from_tsv(
                     key,
                     display,
                     prior,
+                    flagged: a.flagged,
                 },
             ))
         })
@@ -265,6 +278,7 @@ pub fn build_from_tsv(
     words.sort_by(|a, b| a.key.cmp(&b.key));
     report.kept = words.len();
     report.with_zwnj = words.iter().filter(|w| w.display.contains(ZWNJ)).count();
+    report.flagged = words.iter().filter(|w| w.flagged).count();
 
     let bytes = encode(&words, opts)?;
     report.bytes = bytes.len();
@@ -280,7 +294,10 @@ fn encode(words: &[Word], opts: &BuildOptions) -> Result<Vec<u8>, BuildError> {
     }
     let fst = fst.into_inner().map_err(|_| BuildError::Fst)?;
 
-    let prior: Vec<u8> = words.iter().map(|w| w.prior).collect();
+    let prior: Vec<u8> = words
+        .iter()
+        .map(|w| w.prior | if w.flagged { FLAGGED } else { 0 })
+        .collect();
 
     let mut display = Vec::new();
     let mut text = Vec::new();
@@ -488,7 +505,11 @@ mod tests {
         assert_eq!(run("سلام\t5\nسلام\n", &o), e("missing tab"));
         assert_eq!(run("سلام\t5\nسلام\t12\n", &o), e("zipf outside 0..=9"));
         assert_eq!(run("سلام\t5\nسلام\tx\n", &o), e("zipf is not a number"));
-        assert_eq!(run("سلام\t5\nسلام\t1\t2\n", &o), e("more than two fields"));
+        assert_eq!(run("سلام\t5\nسلام\t1\t2\n", &o), e("flags are not letters"));
+        assert_eq!(
+            run("سلام\t5\nسلام\t1\tp\tx\n", &o),
+            e("more than three fields")
+        );
         assert_eq!(run("سلام\t5\n\t1\n", &o), e("empty word"));
         let mut a: &[u8] = "سلام\t5\n".as_bytes();
         let mut b: &[u8] = b"x\t1\n\xff\t1\n";
@@ -504,6 +525,27 @@ mod tests {
         // CRLF, BOM and trailing whitespace are fine.
         let (_, rep) = run("\u{FEFF}سلام\t5 \r\nبد\t3\t\r\n", &o).unwrap();
         assert_eq!(rep.kept, 2);
+    }
+
+    #[test]
+    fn flags_or_merge() {
+        // The flag on any merged line (here the Arabic spelling) flags the key.
+        let tsv = "كتاب\t4\tp\nکتاب\t5\nسلام\t5\tx\nسلام\t4\t \nبد\t3\tP\n";
+        let (bytes, rep) = run(tsv, &BuildOptions::default()).unwrap();
+        assert_eq!(
+            (rep.kept, rep.flagged),
+            (3, 1),
+            "unknown and upper-case letters ignored"
+        );
+        let d = Dictionary::from_bytes(bytes).unwrap();
+        assert!(d.is_flagged("کتاب"));
+        assert!(!d.is_flagged("سلام") && !d.is_flagged("بد"));
+        let expected = (1e5f64 + 1e4).log10();
+        assert_eq!(
+            d.prior("کتاب"),
+            Some(((expected * 10.0).round() / 10.0) as f32),
+            "the flag does not change the prior"
+        );
     }
 
     #[test]
@@ -533,11 +575,8 @@ mod tests {
         assert_eq!(rep.kept, 0);
         let d = Dictionary::from_bytes(bytes).unwrap();
         assert!(d.is_empty());
-        let ctx = RankCtx {
-            history: None,
-            today: Day(1),
-            params: &ScoreParams::default(),
-        };
+        let params = ScoreParams::default();
+        let ctx = RankCtx::new(Day(1), &params);
         assert!(d.complete("سل", 5, &ctx).is_empty());
     }
 
@@ -560,11 +599,8 @@ mod tests {
         let (bytes, rep) = run(&tsv, &BuildOptions::default()).unwrap();
         assert!(rep.kept > 100, "{rep:?}");
         let d = Dictionary::from_bytes(bytes).unwrap();
-        let ctx = RankCtx {
-            history: None,
-            today: Day(1),
-            params: &ScoreParams::default(),
-        };
+        let params = ScoreParams::default();
+        let ctx = RankCtx::new(Day(1), &params);
         let got = d.complete("ب", 9, &ctx);
         assert!(!got.is_empty());
         assert!(got.iter().all(|c| c.text.starts_with('ب') && c.text != "ب"));

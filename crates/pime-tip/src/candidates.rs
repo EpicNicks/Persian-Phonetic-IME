@@ -136,7 +136,13 @@ pub fn to_view_full(
     if let Some(c) = comps {
         v.completions = c.items.clone();
         v.completion_highlight = c.highlighted;
-        let typed = !preedit.is_empty() && c.items.iter().all(|w| w.starts_with(preedit));
+        v.completion_fuzzy = c.edits.iter().map(|&e| e > 0).collect();
+        // Dimming applies to exact rows only, which always start with the preedit.
+        let typed = !preedit.is_empty()
+            && c.items
+                .iter()
+                .enumerate()
+                .all(|(i, w)| c.edits.get(i).is_some_and(|&e| e > 0) || w.starts_with(preedit));
         v.completion_prefix_chars = if typed { preedit.chars().count() } else { 0 };
     }
     v
@@ -742,7 +748,21 @@ mod tests {
         CompletionList {
             items: items.iter().map(|s| (*s).to_owned()).collect(),
             highlighted,
+            edits: vec![0; items.len()],
         }
+    }
+
+    #[test]
+    fn fuzzy_rows_map_and_skip_dimming() {
+        let mut c = comps(&["سلمان", "سلام"], None);
+        c.edits = vec![0, 1];
+        let v = to_view_full(None, Some(&c), "سلم", false, true, 0);
+        assert_eq!(v.completion_fuzzy, [false, true]);
+        assert_eq!(v.completion_prefix_chars, 3, "exact rows keep dimming");
+        assert_eq!(v.dim_prefix_utf16(0), 3);
+        assert_eq!(v.dim_prefix_utf16(1), 0);
+        let v = to_view_full(None, Some(&comps(&["سلام"], None)), "سل", false, true, 0);
+        assert_eq!(v.completion_fuzzy, [false]);
     }
 
     fn list(items: &[&str], highlighted: usize) -> CandidateList {

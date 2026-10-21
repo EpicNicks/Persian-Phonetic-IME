@@ -49,7 +49,7 @@
   },
   {
    "type": "session", "name": "ac predict_min_chars 3 reached",
-   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\npredict_min_chars = 3\n" },
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\npredict_min_chars = 3\nfuzzy = false\n" },
    "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
    "keys": ["s", "l", "a"],
    "committed": "", "preedit": "سلا",
@@ -66,7 +66,7 @@
   },
   {
    "type": "session", "name": "ac no match no section",
-   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
    "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
    "keys": ["s", "l", "a", "m", "t", "i"],
    "committed": "", "preedit": "سلامتی",
@@ -262,7 +262,7 @@
   },
   {
    "type": "session", "name": "ac digit past both sections eaten",
-   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
    "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
    "keys": ["s", "l", "a", "5"],
    "committed": "", "preedit": "سلا", "last_eaten": true,
@@ -304,7 +304,7 @@
   },
   {
    "type": "session", "name": "ac tab cycles alternates and requeries",
-   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
    "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0], ["سلآمد", 1.0]] },
    "keys": ["s", "l", "a", "Down", "Tab"],
    "committed": "", "preedit": "سلآ", "last_eaten": true,
@@ -349,7 +349,7 @@
   },
   {
    "type": "session", "name": "ac escape then up reopens",
-   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
    "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
    "keys": ["s", "l", "a", "Escape", "Up"],
    "committed": "", "preedit": "سلا",
@@ -359,7 +359,7 @@
   },
   {
    "type": "session", "name": "ac escape then tab reopens with alternates",
-   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
    "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
    "keys": ["s", "l", "a", "Escape", "Tab"],
    "committed": "", "preedit": "سلا",
@@ -368,7 +368,7 @@
   },
   {
    "type": "session", "name": "ac escape then typing reopens",
-   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
    "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
    "keys": ["s", "l", "Escape", "a"],
    "committed": "", "preedit": "سلا",
@@ -440,7 +440,7 @@
   },
   {
    "type": "session", "name": "ac backspace requeries and resets highlight",
-   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
    "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
    "keys": ["s", "l", "a", "m", "Down", "Backspace"],
    "committed": "", "preedit": "سلا", "last_eaten": true,
@@ -690,6 +690,167 @@
    "learn": []
   },
   {
+   "type": "session", "name": "ac fuzzy rows follow exact rows",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سالم", 3.0], ["سلیم", 2.0]] },
+   "keys": ["s", "l", "a"],
+   "committed": "", "preedit": "سلا",
+   "completions_after_last": ["سلام", "سلامت", "سالم", "سلیم"],
+   "completion_edits_after_last": [0, 0, 1, 1]
+  },
+  {
+   "type": "session", "name": "ac fuzzy fills only remaining slots",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nmax_completions = 2\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سالم", 3.0], ["سلیم", 2.0]] },
+   "keys": ["s", "l", "a"],
+   "committed": "", "preedit": "سلا",
+   "completions_after_last": ["سلام", "سلامت"],
+   "completion_edits_after_last": [0, 0]
+  },
+  {
+   "type": "session", "name": "ac fuzzy typo completes",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m"],
+   "committed": "", "preedit": "سلم",
+   "completions_after_last": ["سلام", "سلامت", "سلطان"],
+   "completion_edits_after_last": [1, 1, 1],
+   "completion_highlight_after_last": null
+  },
+  {
+   "type": "session", "name": "ac fuzzy accept replaces preedit",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m", "Down", "Enter"],
+   "committed": "سلام", "preedit": "",
+   "last_eaten": true,
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac fuzzy digit accept replaces preedit",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m", "2"],
+   "committed": "سلامت", "preedit": "",
+   "last_eaten": true,
+   "learn": [["accepted", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac fuzzy space top-candidate accepts",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n[options]\nspace = \"top-candidate\"\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m", "Space"],
+   "committed": "سلام ", "preedit": "",
+   "learn": [["accepted", "سلام"]]
+  },
+  {
+   "type": "session", "name": "ac fuzzy rows above accepted are not skipped",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m", "Down", "Down", "Down", "Enter"],
+   "committed": "سلطان", "preedit": "",
+   "learn": [["accepted", "سلطان"]]
+  },
+  {
+   "type": "session", "name": "ac exact rows above accepted fuzzy are skipped",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سالم", 3.0], ["سلیم", 2.0]] },
+   "keys": ["s", "l", "a", "Down", "Down", "Down", "Enter"],
+   "committed": "سالم", "preedit": "",
+   "learn": [["skipped", "سلام"], ["skipped", "سلامت"], ["accepted", "سالم"]]
+  },
+  {
+   "type": "session", "name": "ac fuzzy rows never ignored",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m", "Space"],
+   "committed": "سلم ", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac ignored counts only exact rows",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سالم", 3.0], ["سلیم", 2.0]] },
+   "keys": ["s", "l", "a", "Enter"],
+   "committed": "سلا", "preedit": "",
+   "learn": [["ignored", "سلام"], ["ignored", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac fuzzy rows never dismissed",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سالم", 3.0], ["سلیم", 2.0]] },
+   "keys": ["s", "l", "a", "Escape", "Escape"],
+   "committed": "", "preedit": "",
+   "learn": [["dismissed", "سلام"], ["dismissed", "سلامت"]]
+  },
+  {
+   "type": "session", "name": "ac fuzzy only list escape records nothing",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m", "Escape", "Escape"],
+   "committed": "", "preedit": "",
+   "learn": []
+  },
+  {
+   "type": "session", "name": "ac fuzzy off",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m"],
+   "committed": "", "preedit": "سلم",
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac fuzzy off keeps exact rows",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy = false\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سالم", 3.0], ["سلیم", 2.0]] },
+   "keys": ["s", "l", "a"],
+   "committed": "", "preedit": "سلا",
+   "completions_after_last": ["سلام", "سلامت"],
+   "completion_edits_after_last": [0, 0]
+  },
+  {
+   "type": "session", "name": "ac fuzzy below fuzzy_min_chars",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\nfuzzy_min_chars = 4\n" },
+   "completer": { "words": [["سلام", 5.0], ["سلامت", 4.2], ["سلطان", 4.0]] },
+   "keys": ["s", "l", "m"],
+   "committed": "", "preedit": "سلم",
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac fuzzy needs three letters by default",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سام", 5.0]] },
+   "keys": ["s", "l"],
+   "committed": "", "preedit": "سل",
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac fuzzy two edits from six letters",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["کتابخانه", 5.0]] },
+   "keys": ["k", "t", "b", "k", "h", "n", "h"],
+   "committed": "", "preedit": "کتبخنه",
+   "completions_after_last": ["کتابخانه"],
+   "completion_edits_after_last": [2]
+  },
+  {
+   "type": "session", "name": "ac fuzzy one edit up to five letters",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["کتابخانه", 5.0]] },
+   "keys": ["k", "t", "b", "k", "h", "n"],
+   "committed": "", "preedit": "کتبخن",
+   "completions_after_last": null
+  },
+  {
+   "type": "session", "name": "ac fuzzy arabic variants never appear",
+   "config": { "preset": "qamooscheh", "toml": "[autocomplete]\nenabled = true\n" },
+   "completer": { "words": [["سلاك", 5.0], ["سليم", 4.0], ["سالم", 3.0], ["سلة", 2.0]] },
+   "keys": ["s", "l", "m"],
+   "committed": "", "preedit": "سلم",
+   "completions_after_last": ["سالم"],
+   "completion_edits_after_last": [1]
+  },
+  {
    "type": "config_error", "name": "ac max_completions zero keeps default",
    "user_config_toml": "[autocomplete]\nmax_completions = 0\nenabled = true\n",
    "expect": { "fallback": "entry",
@@ -716,6 +877,34 @@
    "expect": { "fallback": "none",
                "applied": { "autocomplete.enabled": true, "autocomplete.predict_min_chars": 3,
                             "autocomplete.learning": false, "autocomplete.max_completions": 7 } }
+  },
+  {
+   "type": "config_error", "name": "ac fuzzy keys applied",
+   "user_config_toml": "[autocomplete]\nfuzzy = false\nfuzzy_min_chars = 5\nfilter_profanity = false\n",
+   "expect": { "fallback": "none",
+               "applied": { "autocomplete.fuzzy": false, "autocomplete.fuzzy_min_chars": 5,
+                            "autocomplete.filter_profanity": false } }
+  },
+  {
+   "type": "config_error", "name": "ac fuzzy defaults",
+   "user_config_toml": "[autocomplete]\nenabled = true\n",
+   "expect": { "fallback": "none",
+               "applied": { "autocomplete.fuzzy": true, "autocomplete.fuzzy_min_chars": 3,
+                            "autocomplete.filter_profanity": true } }
+  },
+  {
+   "type": "config_error", "name": "ac fuzzy_min_chars below two keeps default",
+   "user_config_toml": "[autocomplete]\nfuzzy_min_chars = 1\nfuzzy = false\n",
+   "expect": { "fallback": "entry",
+               "applied": { "autocomplete.fuzzy_min_chars": 3, "autocomplete.fuzzy": false },
+               "messages_contain": ["line 2", "fuzzy_min_chars must be at least 2, not 1"] }
+  },
+  {
+   "type": "config_error", "name": "ac filter_profanity not a bool",
+   "user_config_toml": "[autocomplete]\nfilter_profanity = 0\n",
+   "expect": { "fallback": "entry",
+               "applied": { "autocomplete.filter_profanity": true },
+               "messages_contain": ["filter_profanity must be true or false"] }
   },
   {
    "type": "config_error", "name": "ac enabled not a bool",

@@ -47,6 +47,16 @@ fn session_complete_seeds() {
     for s in seeds("session_keys").into_iter().chain(random_inputs()) {
         pime_fuzz::check_session_complete(&s);
     }
+    // Typo seeds: fuzzy rows accepted, escaped, ignored, toggled by reload.
+    let mut fuzzy = (0, 0, 0);
+    for s in seeds("session_complete") {
+        let (c, l, f) = pime_fuzz::session_complete_coverage(&s);
+        fuzzy = (fuzzy.0 + c, fuzzy.1 + l, fuzzy.2 + f);
+    }
+    assert!(
+        fuzzy.0 > 0 && fuzzy.1 > 0 && fuzzy.2 > 0,
+        "typo seeds never reach fuzzy rows/learning: {fuzzy:?}"
+    );
     // Hand-built: completions on (byte 0 = 0), type letters then exercise Down/Enter/Esc/digits.
     let nav = |i: u8| [3u8, 0x80 | (i << 1)];
     let mut seen = (0, 0);
@@ -61,7 +71,7 @@ fn session_complete_seeds() {
             }
             s.extend(nav((tail + 1) % 12));
             s.extend(nav(2));
-            let (c, l) = pime_fuzz::session_complete_coverage(&s);
+            let (c, l, _) = pime_fuzz::session_complete_coverage(&s);
             seen = (seen.0 + c, seen.1 + l);
         }
     }
@@ -102,6 +112,9 @@ fn dict_tsv_seeds() {
     ];
     for t in tsvs {
         pime_fuzz::check_dict_tsv(t);
+    }
+    for s in seeds("dict_build_tsv") {
+        pime_fuzz::check_dict_tsv(&s);
     }
     for s in random_inputs() {
         pime_fuzz::check_dict_tsv(&s);

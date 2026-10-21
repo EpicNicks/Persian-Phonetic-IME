@@ -240,6 +240,26 @@ fn run_session(case: &Value) -> Result<(), String> {
             ));
         }
     }
+    if let Some(want) = case.get("completion_edits_after_last") {
+        let want = if want.is_null() {
+            None
+        } else {
+            let list = want
+                .as_array()
+                .ok_or("bad completion_edits_after_last")?
+                .iter()
+                .map(|e| e.as_u64().and_then(|e| u8::try_from(e).ok()))
+                .collect::<Option<Vec<u8>>>()
+                .ok_or("bad completion_edits_after_last")?;
+            Some(list)
+        };
+        let got = last.completions.as_ref().map(|c| c.edits.clone());
+        if got != want {
+            errs.push(format!(
+                "completion_edits_after_last: expected {want:?}, got {got:?}"
+            ));
+        }
+    }
     if let Some(want) = case.get("completion_highlight_after_last") {
         let want = want.as_u64().map(|h| h as usize);
         let got = last.completions.as_ref().and_then(|c| c.highlighted);

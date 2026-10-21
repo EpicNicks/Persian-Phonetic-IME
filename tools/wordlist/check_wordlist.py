@@ -6,7 +6,11 @@ import sys
 sys.stdout.reconfigure(encoding="utf-8")
 
 path = sys.argv[1] if len(sys.argv) > 1 else "data/dict/fa-wordfreq.tsv"
-rows = [l.rstrip("\n").split("\t") for l in open(path, encoding="utf-8")]
+full = [l.rstrip("\n").split("\t") for l in open(path, encoding="utf-8")]
+if any(len(r) not in (2, 3) or (len(r) == 3 and r[2] != "p") for r in full):
+    sys.exit("FAIL: rows must be word<TAB>zipf[<TAB>p]")
+rows = [r[:2] for r in full]
+flagged = [r[0] for r in full if len(r) == 3]
 words = [w for w, _ in rows]
 freqs = [float(f) for _, f in rows]
 if any(not re.fullmatch(r"\d\.\d\d", f) for _, f in rows):
@@ -24,6 +28,13 @@ for pat, name in [(r"[\u064a\u0643\u0629\u0649]", "arabic variants"), (r"[A-Za-z
         bad.append(name)
 print(f"{len(words)} words; min zipf {min(freqs)}; top 30: {' '.join(words[:30])}")
 z = [w for w in words if "\u200c" in w]
+print(f"{len(flagged)} flagged (p)")
+for t in ["کون", "کیر", "سکس", "کس"]:
+    if t not in flagged:
+        bad.append(f"{t} not flagged")
+for t in ["تخم", "ناموس", "کسی", "بکن"]:
+    if t in flagged:
+        bad.append(f"{t} wrongly flagged")
 print(f"{len(z)} with ZWNJ; top: {' '.join(z[:15])}")
 mor = {"ها", "های", "می", "نمی", "تر", "ترین", "ام", "ات", "اش"}
 if mor & set(words):

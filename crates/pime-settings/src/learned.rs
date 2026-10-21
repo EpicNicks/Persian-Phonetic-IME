@@ -81,6 +81,14 @@ pub const CHECK_ROWS: &[CheckRow] = &[
         key: "learning",
         label: "Learn from my choices",
     },
+    CheckRow {
+        key: "fuzzy",
+        label: "Suggest corrections for typos",
+    },
+    CheckRow {
+        key: "filter_profanity",
+        label: "Hide vulgar words",
+    },
 ];
 
 /// The number boxes, in form order.
@@ -96,6 +104,12 @@ pub const NUMBER_ROWS: &[NumberRow] = &[
         label: "Number of suggestions",
         min: 1,
         max: 9,
+    },
+    NumberRow {
+        key: "fuzzy_min_chars",
+        label: "Typo tolerance starts after N letters",
+        min: 2,
+        max: 10,
     },
 ];
 
@@ -197,6 +211,21 @@ mod tests {
     }
 
     #[test]
+    fn fuzzy_and_filter_rows_exist_with_their_ranges() {
+        for k in ["fuzzy", "filter_profanity"] {
+            assert!(CHECK_ROWS.iter().any(|r| r.key == k), "{k}");
+        }
+        let r = NUMBER_ROWS
+            .iter()
+            .find(|r| r.key == "fuzzy_min_chars")
+            .unwrap();
+        assert_eq!(
+            (r.parse("1"), r.parse("99"), r.parse("4")),
+            (Some(2), Some(10), Some(4))
+        );
+    }
+
+    #[test]
     fn number_parsing_clamps() {
         let r = NUMBER_ROWS[0];
         assert_eq!(r.parse("3"), Some(3));
@@ -232,8 +261,7 @@ mod tests {
                 let v = OptionValue::Integer(n);
                 match set_setting("", SECTION, row.key, &v) {
                     Ok(text) => assert_eq!(effective(&text, row.key), Some(v), "{}", row.key),
-                    // `max_completions` arrives with pime-core's AC-C change.
-                    Err(e) => assert_eq!(row.key, "max_completions", "{e}"),
+                    Err(e) => panic!("{}: {e}", row.key),
                 }
             }
         }

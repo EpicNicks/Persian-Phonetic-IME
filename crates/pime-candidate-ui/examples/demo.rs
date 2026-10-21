@@ -62,6 +62,7 @@ mod demo {
         ("میز", 4.5),
     ];
     const VK_F6: u32 = 0x75;
+    const VK_F7: u32 = 0x76;
     const VK_F2: u32 = 0x71;
     const VK_F3: u32 = 0x72;
     const VK_F4: u32 = 0x73;
@@ -120,6 +121,7 @@ mod demo {
             v.completion_highlight = c.highlighted;
             let typed = !preedit.is_empty() && c.items.iter().all(|w| w.starts_with(preedit));
             v.completion_prefix_chars = if typed { preedit.chars().count() } else { 0 };
+            v.completion_fuzzy = c.edits.iter().map(|&e| e > 0).collect();
         }
         v
     }
@@ -401,6 +403,23 @@ mod demo {
                     VK_F5 => {
                         d.committed.clear();
                         refresh(d);
+                    }
+                    // Static fuzzy scenario: typed "سلم", two exact rows, then two approximate
+                    // rows (no dimming, marker at the far end).
+                    VK_F7 => {
+                        let view = CandidateView {
+                            show_numbers: true,
+                            show_footer: d.footer,
+                            completions: ["سلمان", "سلمه", "سلام", "سلیم"]
+                                .map(str::to_owned)
+                                .to_vec(),
+                            completion_highlight: Some(2),
+                            completion_prefix_chars: 3,
+                            completion_fuzzy: vec![false, false, true, true],
+                            ..Default::default()
+                        };
+                        d.popup.update(&view);
+                        d.popup.show_at(d.anchor, d.prefer_above);
                     }
                     VK_F6 => {
                         d.complete = !d.complete;

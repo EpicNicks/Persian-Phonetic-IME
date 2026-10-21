@@ -1,14 +1,17 @@
 //! `xtask eval-dict`: completion quality and latency of a `dict.bin` (docs/autocomplete.md 9).
 
 use pime_dict::eval::{
-    evaluate_adaptive, evaluate_static, parse_corpus, parse_set, AdaptiveOptions, StaticOptions,
+    evaluate_adaptive, evaluate_static, evaluate_typos, parse_corpus, parse_set, AdaptiveOptions,
+    StaticOptions, TypoOptions,
 };
 use pime_dict::Dictionary;
 use std::path::PathBuf;
 
 const USAGE: &str =
     "usage: xtask eval-dict --dict <dict.bin> --set <words.tsv> [--corpus <corpus.txt>]
-                       [--min-chars N] [--passes N] [--json]";
+                       [--min-chars N] [--passes N] [--fuzzy-min-chars N] [--seed N]
+                       [--no-fuzzy] [--json]
+  --no-fuzzy: the adaptive replay runs without fuzzy rows (the typo run always compares both)";
 
 pub fn run(args: &[String]) -> Result<(), String> {
     let mut dict = None;
@@ -17,6 +20,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
     let mut json = false;
     let mut st = StaticOptions::default();
     let mut ad = AdaptiveOptions::default();
+    let mut ty = TypoOptions::default();
     let mut it = args.iter();
     while let Some(a) = it.next() {
         let mut val = || {
@@ -34,6 +38,14 @@ pub fn run(args: &[String]) -> Result<(), String> {
                 ad.min_letters = n.max(1);
             }
             "--passes" => ad.passes = val()?.parse().map_err(|_| "--passes: not a number")?,
+            "--fuzzy-min-chars" => {
+                let n: usize = val()?
+                    .parse()
+                    .map_err(|_| "--fuzzy-min-chars: not a number")?;
+                ty.fuzzy_min_chars = n.max(2);
+            }
+            "--seed" => ty.seed = val()?.parse().map_err(|_| "--seed: not a number")?,
+            "--no-fuzzy" => ad.fuzzy = false,
             "--json" => json = true,
             _ => return Err(format!("unknown argument {a:?}\n{USAGE}")),
         }
@@ -47,6 +59,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         .map_err(|e| format!("cannot read {}: {e}", set_path.display()))?;
     let words = parse_set(&set_text);
     let report = evaluate_static(&dict, &words, &st);
+    let typos = evaluate_typos(&dict, &words, &ty);
     let adaptive = match &corpus {
         Some(p) => {
             let text = std::fs::read_to_string(p)
@@ -60,15 +73,17 @@ pub fn run(args: &[String]) -> Result<(), String> {
             .as_ref()
             .map_or("null".to_string(), |a| a.to_json());
         println!(
-            "{{\"dict_words\":{},\"release\":{},\"static\":{},\"adaptive\":{}}}",
+            "{{\"dict_words\":{},\"release\":{},\"static\":{},\"typo\":{},\"adaptive\":{}}}",
             dict.len(),
             !cfg!(debug_assertions),
             report.to_json(),
+            typos.to_json(),
             ad
         );
     } else {
         println!("dictionary: {} words", dict.len());
         print!("{}", report.to_text());
+        print!("{}", typos.to_text());
         if let Some(a) = &adaptive {
             print!("{}", a.to_text());
         }

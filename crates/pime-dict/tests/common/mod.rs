@@ -3,7 +3,10 @@
 
 #![allow(dead_code)]
 
-use pime_dict::{build_from_tsv, BuildOptions, BuildReport, Dictionary};
+use pime_core::{match_key, Completion};
+use pime_dict::{
+    build_from_tsv, BuildOptions, BuildReport, Day, Dictionary, History, RankCtx, ScoreParams,
+};
 use std::io::BufRead;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -253,4 +256,126 @@ pub fn build_dict(tsvs: &[&str], opts: &BuildOptions) -> Result<(Dictionary, Bui
     let (bytes, report) = build_bytes(tsvs, opts)?;
     let dict = Dictionary::from_bytes(bytes).map_err(|e| format!("built file rejected: {e:?}"))?;
     Ok((dict, report))
+}
+
+/// A ranking context; the one place the tests depend on `RankCtx`'s fields.
+pub fn rank<'a>(
+    history: Option<&'a History>,
+    today: Day,
+    params: &'a ScoreParams,
+    fuzzy: bool,
+    fuzzy_min_chars: usize,
+    hide_flagged: bool,
+) -> RankCtx<'a> {
+    RankCtx {
+        history,
+        today,
+        params,
+        fuzzy,
+        fuzzy_min_chars,
+        hide_flagged,
+    }
+}
+
+/// `maxd(n)` of docs/autocomplete.md 13.
+pub fn max_edits(n: usize) -> usize {
+    if n <= 5 {
+        1
+    } else {
+        2
+    }
+}
+
+/// Reference distance of docs/autocomplete.md 13, written independently of the crates: the
+/// smallest optimal-string-alignment distance (insert, delete, substitute, adjacent
+/// transposition, each 1) between `key` and any prefix of `word`, over the full matrix.
+pub fn prefix_distance(key: &str, word: &str) -> usize {
+    let a: Vec<char> = key.chars().collect();
+    let b: Vec<char> = word.chars().collect();
+    let mut d = vec![vec![0usize; b.len() + 1]; a.len() + 1];
+    for (i, row) in d.iter_mut().enumerate() {
+        row[0] = i;
+    }
+    for (j, cell) in d[0].iter_mut().enumerate() {
+        *cell = j;
+    }
+    for i in 1..=a.len() {
+        for j in 1..=b.len() {
+            let sub = d[i - 1][j - 1] + usize::from(a[i - 1] != b[j - 1]);
+            let mut v = sub.min(d[i - 1][j] + 1).min(d[i][j - 1] + 1);
+            if i > 1 && j > 1 && a[i - 1] == b[j - 2] && a[i - 2] == b[j - 1] {
+                v = v.min(d[i - 2][j - 2] + 1);
+            }
+            d[i][j] = v;
+        }
+    }
+    d[a.len()].iter().copied().min().unwrap_or(0)
+}
+
+const ARABIC_ONLY: [char; 4] = ['\u{064A}', '\u{0649}', '\u{0643}', '\u{0629}'];
+
+/// Contract invariants of a `complete` result (docs/autocomplete.md 2.2 and 13); `fuzzy` is
+/// `Some(fuzzy_min_chars)` when fuzzy matching was requested. Returns the violations.
+pub fn check_rows(
+    prefix: &str,
+    rows: &[Completion],
+    limit: usize,
+    fuzzy: Option<usize>,
+) -> Vec<String> {
+    let mut errs = Vec::new();
+    let k = match_key(prefix);
+    let n = k.chars().count();
+    if rows.len() > limit {
+        errs.push(format!("{} results exceed limit {limit}", rows.len()));
+    }
+    let mut last_edits = 0;
+    for (i, c) in rows.iter().enumerate() {
+        let t = &c.text;
+        if rows[..i].iter().any(|o| o.text == *t) {
+            errs.push(format!("{t:?} duplicated"));
+        }
+        if !c.score.is_finite() {
+            errs.push(format!("{t:?} has a non-finite score"));
+        }
+        if c.edits < last_edits {
+            errs.push(format!(
+                "{t:?} (edits {}) after a row with edits {last_edits}",
+                c.edits
+            ));
+        }
+        last_edits = c.edits;
+        if c.edits == 0 {
+            if !t.starts_with(prefix) || t == prefix {
+                errs.push(format!("{t:?} does not extend the prefix"));
+            }
+            continue;
+        }
+        let wk = match_key(t);
+        match fuzzy {
+            None => errs.push(format!("{t:?} has edits {} with fuzzy off", c.edits)),
+            Some(min) if n < min => {
+                errs.push(format!("{t:?} fuzzy below fuzzy_min_chars {min}"));
+            }
+            _ => {}
+        }
+        if usize::from(c.edits) > max_edits(n) {
+            errs.push(format!("{t:?} edits {} over maxd({n})", c.edits));
+        }
+        if t == prefix || wk.starts_with(&k) {
+            errs.push(format!(
+                "{t:?} is a fuzzy row but extends the prefix exactly"
+            ));
+        }
+        if t.chars().any(|ch| ARABIC_ONLY.contains(&ch)) {
+            errs.push(format!("{t:?} fuzzy row has an Arabic-only letter"));
+        }
+        let d = prefix_distance(&k, &wk);
+        if d != usize::from(c.edits) {
+            errs.push(format!(
+                "{t:?} reports edits {}, reference distance {d}",
+                c.edits
+            ));
+        }
+    }
+    errs
 }

@@ -230,8 +230,8 @@ impl Renderer {
         };
         // One column width for both sections.
         let g = view.rows().map(|t| width(t, &f.glyph)).fold(0.0, f32::max);
-        let l = (0..view.alt_len())
-            .map(|i| width(view.label(i), &f.label))
+        let l = (0..view.visible_len())
+            .map(|i| width(view.drawn_label(i), &f.label))
             .fold(0.0, f32::max);
         (g, l)
     }
@@ -347,7 +347,7 @@ impl Renderer {
                     draw(text, &formats.glyph, row.glyph, tb);
                 }
                 if let Some(lr) = row.label {
-                    let l = view.label(i);
+                    let l = view.drawn_label(i);
                     if !l.is_empty() {
                         draw(l, &formats.label, lr, lb);
                     }

@@ -1,4 +1,4 @@
-//! `dict.bin` format version 1: layout constants and one-time validation
+//! `dict.bin` format version 2: layout constants and one-time validation
 //! (docs/autocomplete.md 3.1). After [`validate`] succeeds no lookup can fail.
 
 use std::fmt;
@@ -9,7 +9,7 @@ use std::sync::Arc;
 use fst::{Map, Streamer};
 
 pub(crate) const MAGIC: &[u8; 8] = b"PIMEDICT";
-pub(crate) const VERSION: u16 = 1;
+pub(crate) const VERSION: u16 = 2;
 pub(crate) const HEADER_LEN: usize = 64;
 /// Largest `dict.bin` accepted.
 pub(crate) const MAX_FILE: usize = 32 << 20;
@@ -23,8 +23,10 @@ pub(crate) const SEC_INFO: usize = 4;
 pub(crate) const TOP_COUNT: usize = 64;
 /// Prefixes whose range holds more keys than this get a TOP entry.
 pub(crate) const TOP_THRESHOLD: usize = 256;
-/// Largest PRIOR byte (Zipf 9.0).
+/// Largest PRIOR value (Zipf 9.0), in bits 0..=6 of a PRIOR byte.
 pub(crate) const MAX_PRIOR: u8 = 90;
+/// PRIOR byte bit 7: the word is flagged as vulgar (docs/autocomplete.md 13).
+pub(crate) const FLAGGED: u8 = 0x80;
 
 /// Why a dictionary could not be used. Never contains words or paths.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -147,7 +149,7 @@ pub(crate) fn validate(buf: &Arc<Vec<u8>>) -> Result<Layout, DictError> {
     if prior.len() != n {
         return Err(corrupt("prior length"));
     }
-    if b[prior.clone()].iter().any(|&p| p > MAX_PRIOR) {
+    if b[prior.clone()].iter().any(|&p| (p & !FLAGGED) > MAX_PRIOR) {
         return Err(corrupt("prior value"));
     }
 

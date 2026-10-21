@@ -26,7 +26,13 @@ pub struct CandidateView {
     /// Leading chars of each completion that were typed (the preedit); drawn in the secondary
     /// text colour, the rest in primary. 0 = no dimming.
     pub completion_prefix_chars: usize,
+    /// Parallel to `completions`: true = approximate (typo-tolerant) match. Such rows are not
+    /// prefix-dimmed and carry the `FUZZY_MARKER`. Empty or short = remaining rows exact.
+    pub completion_fuzzy: Vec<bool>,
 }
+
+/// Drawn at the far end of an approximate completion row, in the label style.
+pub const FUZZY_MARKER: &str = "\u{2248}";
 
 /// Row label for 0-based row `i`: the hot key 1-9 shown with Persian digits (the popup only
 /// exists while typing Persian).
@@ -63,6 +69,26 @@ impl CandidateView {
         (self.alt_len()..self.visible_len()).contains(&i)
     }
 
+    /// True if visible row `i` is an approximate-match completion.
+    pub fn is_fuzzy(&self, i: usize) -> bool {
+        self.is_completion(i)
+            && self
+                .completion_fuzzy
+                .get(i - self.alt_len())
+                .copied()
+                .unwrap_or(false)
+    }
+
+    /// Text drawn in the label column of row `i`: the learner label of an alternate, the
+    /// approximate-match marker of a fuzzy completion, else "".
+    pub fn drawn_label(&self, i: usize) -> &str {
+        if self.is_fuzzy(i) {
+            FUZZY_MARKER
+        } else {
+            self.label(i)
+        }
+    }
+
     /// Text of visible row `i` ("" when out of range).
     pub fn row_text(&self, i: usize) -> &str {
         let n = self.alt_len();
@@ -83,7 +109,7 @@ impl CandidateView {
     /// Number of leading UTF-16 units of row `i` to draw dimmed (the typed prefix of a
     /// completion row; 0 for alternates).
     pub fn dim_prefix_utf16(&self, i: usize) -> usize {
-        if !self.is_completion(i) || self.completion_prefix_chars == 0 {
+        if !self.is_completion(i) || self.completion_prefix_chars == 0 || self.is_fuzzy(i) {
             return 0;
         }
         self.row_text(i)
@@ -145,8 +171,9 @@ impl CandidateView {
             .map_or("", String::as_str)
     }
 
+    /// Whether the label column is needed (learner labels or fuzzy markers).
     pub fn has_labels(&self) -> bool {
-        (0..self.alt_len()).any(|i| !self.label(i).is_empty())
+        (0..self.visible_len()).any(|i| !self.drawn_label(i).is_empty())
     }
 
     /// Footer text ("2/3") over the combined rows, `"-/3"` with no selection, or `None` when
@@ -316,5 +343,30 @@ mod tests {
         assert_eq!(v.dim_prefix_utf16(4), 4, "clamped to the row");
         v.completion_prefix_chars = 0;
         assert_eq!(v.dim_prefix_utf16(3), 0);
+    }
+
+    #[test]
+    fn fuzzy_rows_have_marker_and_no_dimming() {
+        let mut v = two_sections();
+        v.completion_fuzzy = vec![false, true];
+        assert!(!v.is_fuzzy(3) && v.is_fuzzy(4));
+        assert!(!v.is_fuzzy(0), "alternates are never fuzzy");
+        assert_eq!(v.dim_prefix_utf16(3), 1, "exact rows keep the dimming");
+        assert_eq!(v.dim_prefix_utf16(4), 0, "fuzzy rows are not dimmed");
+        assert_eq!(v.drawn_label(1), "sad");
+        assert_eq!(v.drawn_label(3), "");
+        assert_eq!(v.drawn_label(4), FUZZY_MARKER);
+        assert_eq!(v.label(4), "", "UIA label text is unaffected");
+        // Short vector: remaining rows are exact.
+        v.completion_fuzzy = vec![true];
+        assert!(v.is_fuzzy(3) && !v.is_fuzzy(4));
+        // Marker alone needs the label column.
+        let only = CandidateView {
+            completions: strs(&["سلام"]),
+            completion_fuzzy: vec![true],
+            ..Default::default()
+        };
+        assert!(only.has_labels());
+        assert!(!CandidateView::default().has_labels());
     }
 }

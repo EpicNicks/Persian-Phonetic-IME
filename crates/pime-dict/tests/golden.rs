@@ -1,12 +1,12 @@
-//! Runs `data/golden/dict.json` (format: docs/autocomplete.md section 8). Dictionaries are
-//! built in memory with `build_from_tsv`; history is replayed with `History::record`.
+//! Runs `data/golden/dict.json` (format: docs/autocomplete.md sections 8 and 13). Dictionaries
+//! are built in memory with `build_from_tsv`; history is replayed with `History::record`.
 //! Reports every failing case at once.
 
 mod common;
 
-use common::{build_bytes, build_dict, default_build_options, parse_json, Json};
+use common::{build_bytes, build_dict, check_rows, default_build_options, parse_json, rank, Json};
 use pime_core::{LearnEvent, LearnKind};
-use pime_dict::{BuildOptions, BuildReport, Day, Dictionary, History, RankCtx, ScoreParams};
+use pime_dict::{BuildOptions, BuildReport, Day, Dictionary, History, ScoreParams};
 use std::path::PathBuf;
 
 fn golden_file() -> PathBuf {
@@ -75,7 +75,15 @@ fn run_complete(case: &Json) -> Result<(), String> {
     let (dict, _) = build_dict(&refs, &options(case)?)?;
     let params = ScoreParams::default();
     let history = replay(case, &params)?;
-    let use_history = case.get("use_history").and_then(Json::bool).unwrap_or(true);
+    let flag = |k: &str, default: bool| case.get(k).and_then(Json::bool).unwrap_or(default);
+    let use_history = flag("use_history", true);
+    // Cases written before section 13 have no "fuzzy" field and mean exact matching only.
+    let fuzzy = flag("fuzzy", false);
+    let hide_flagged = flag("hide_flagged", true);
+    let fuzzy_min_chars = case
+        .get("fuzzy_min_chars")
+        .and_then(Json::num)
+        .unwrap_or(3.0) as usize;
     let today = case.get("today").and_then(Json::num).unwrap_or(20000.0) as u32;
     let prefix = case
         .get("prefix")
@@ -89,32 +97,38 @@ fn run_complete(case: &Json) -> Result<(), String> {
         .get("expect")
         .and_then(Json::strings)
         .ok_or("missing expect")?;
-    let rank = RankCtx {
-        history: use_history.then_some(&history),
-        today: Day(today),
-        params: &params,
-    };
-    let got: Vec<String> = dict
-        .complete(prefix, limit, &rank)
-        .into_iter()
-        .map(|c| c.text)
-        .collect();
+    let ctx = rank(
+        use_history.then_some(&history),
+        Day(today),
+        &params,
+        fuzzy,
+        fuzzy_min_chars,
+        hide_flagged,
+    );
+    let rows = dict.complete(prefix, limit, &ctx);
+    let got: Vec<String> = rows.iter().map(|c| c.text.clone()).collect();
     let mut errs = Vec::new();
     if got != want {
         errs.push(format!("expected {want:?}, got {got:?}"));
     }
-    // Trait-level invariants (docs/autocomplete.md 2.2), independent of the expectation.
-    if got.len() > limit {
-        errs.push(format!("{} results exceed limit {limit}", got.len()));
-    }
-    for (i, t) in got.iter().enumerate() {
-        if !t.starts_with(prefix) || t == prefix {
-            errs.push(format!("{t:?} does not extend the prefix"));
+    if let Some(want_edits) = case.get("expect_edits").and_then(Json::arr) {
+        let want_edits: Vec<u8> = want_edits
+            .iter()
+            .filter_map(|v| v.num())
+            .map(|n| n as u8)
+            .collect();
+        let got_edits: Vec<u8> = rows.iter().map(|c| c.edits).collect();
+        if got_edits != want_edits {
+            errs.push(format!("edits: expected {want_edits:?}, got {got_edits:?}"));
         }
-        if got[..i].contains(t) {
-            errs.push(format!("{t:?} duplicated"));
-        }
     }
+    // Contract invariants (docs/autocomplete.md 2.2, 13), independent of the expectation.
+    errs.extend(check_rows(
+        prefix,
+        &rows,
+        limit,
+        fuzzy.then_some(fuzzy_min_chars),
+    ));
     if errs.is_empty() {
         Ok(())
     } else {
@@ -122,9 +136,13 @@ fn run_complete(case: &Json) -> Result<(), String> {
     }
 }
 
+/// Possible first letters of a stored key: the letters the builder keeps (3.2), so the
+/// Arabic-only U+0629 and U+0643 (which would be echoed back verbatim) are not in it.
 const FIRST_CHARS: &[std::ops::RangeInclusive<u32>] = &[
-    0x0621..=0x063A,
-    0x0641..=0x0648,
+    0x0621..=0x0628,
+    0x062A..=0x063A,
+    0x0641..=0x0642,
+    0x0644..=0x0648,
     0x067E..=0x067E,
     0x0686..=0x0686,
     0x0698..=0x0698,
@@ -133,22 +151,17 @@ const FIRST_CHARS: &[std::ops::RangeInclusive<u32>] = &[
     0x06CC..=0x06CC,
 ];
 
-/// Every display form, recovered through `complete` with each possible first letter (a
-/// one-letter prefix never ends in ZWNJ, so the output is the display itself).
-fn all_displays(dict: &Dictionary) -> Vec<String> {
+/// Display forms, recovered through exact `complete` with each possible first letter (a
+/// one-letter prefix never ends in ZWNJ, so the output is the display itself). With
+/// `hide_flagged`, only the entries the profanity filter leaves.
+fn all_displays(dict: &Dictionary, hide_flagged: bool) -> Vec<String> {
     let params = ScoreParams::default();
-    let rank = RankCtx {
-        history: None,
-        today: Day(0),
-        params: &params,
-    };
+    let ctx = rank(None, Day(0), &params, false, 3, hide_flagged);
     let mut out: Vec<String> = FIRST_CHARS
         .iter()
         .flat_map(|r| r.clone())
         .filter_map(char::from_u32)
-        // A ك or ة prefix matches the normalised word but echoes the Arabic letter.
-        .filter(|c| !matches!(c, '\u{0629}' | '\u{0643}'))
-        .flat_map(|c| dict.complete(&c.to_string(), dict.len() + 1, &rank))
+        .flat_map(|c| dict.complete(&c.to_string(), dict.len() + 1, &ctx))
         .map(|c| c.text)
         .collect();
     out.sort();
@@ -162,6 +175,7 @@ fn report_field(r: &BuildReport, name: &str) -> Option<usize> {
         "dropped_chars" => r.dropped_chars,
         "merged" => r.merged,
         "with_zwnj" => r.with_zwnj,
+        "flagged" => r.flagged,
         "bytes" => r.bytes,
         _ => return None,
     })
@@ -177,16 +191,25 @@ fn run_build(case: &Json) -> Result<(), String> {
             Ok(_) => Err("expected a build error".into()),
         };
     }
-    let (dict, report) = build_dict(&refs, &opts)?;
     let mut errs = Vec::new();
-    if let Some(want) = case.get("expect_display").and_then(Json::strings) {
-        let mut want = want;
-        want.sort();
-        let got = all_displays(&dict);
-        if got != want {
-            errs.push(format!("displays: expected {want:?}, got {got:?}"));
+    if let Some(v) = case.get("expect_format_version").and_then(Json::num) {
+        let (bytes, _) = build_bytes(&refs, &opts)?;
+        let got = bytes.get(8..10).map(|b| u16::from_le_bytes([b[0], b[1]]));
+        if got != Some(v as u16) {
+            errs.push(format!("format_version: expected {v}, got {got:?}"));
         }
-        if dict.len() != want.len() {
+    }
+    let (dict, report) = build_dict(&refs, &opts)?;
+    for (field, hide) in [("expect_display", false), ("expect_hidden_display", true)] {
+        let Some(mut want) = case.get(field).and_then(Json::strings) else {
+            continue;
+        };
+        want.sort();
+        let got = all_displays(&dict, hide);
+        if got != want {
+            errs.push(format!("{field}: expected {want:?}, got {got:?}"));
+        }
+        if !hide && dict.len() != want.len() {
             errs.push(format!("len: expected {}, got {}", want.len(), dict.len()));
         }
     }
@@ -242,5 +265,20 @@ fn dict_golden_cases() {
         "{} dict golden failures:\n{}",
         failures.len(),
         failures.join("\n")
+    );
+}
+
+#[test]
+fn format_version_1_rejected() {
+    let (mut bytes, _) = build_bytes(&["سلام\t5\n"], &default_build_options()).unwrap();
+    assert_eq!(
+        &bytes[8..10],
+        &2u16.to_le_bytes(),
+        "builder writes format 2"
+    );
+    bytes[8..10].copy_from_slice(&1u16.to_le_bytes());
+    assert_eq!(
+        Dictionary::from_bytes(bytes).unwrap_err(),
+        pime_dict::DictError::UnsupportedVersion(1)
     );
 }

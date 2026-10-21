@@ -364,6 +364,9 @@ impl Inner {
         s.items = st.view.rows().map(str::to_owned).collect();
         s.labels = (0..n).map(|i| st.view.label(i).to_owned()).collect();
         s.first_completion = st.view.alt_len();
+        s.fuzzy = (st.view.alt_len()..n)
+            .map(|i| st.view.is_fuzzy(i))
+            .collect();
         s.highlighted = st.view.selected_row();
         s.rows = st.layout.rows.iter().map(|r| r.row).collect();
     }

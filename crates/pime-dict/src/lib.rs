@@ -7,6 +7,7 @@ mod build;
 mod dict;
 pub mod eval;
 mod format;
+mod fuzzy;
 mod history;
 mod runtime;
 mod score;
