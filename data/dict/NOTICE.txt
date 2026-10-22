@@ -36,7 +36,7 @@ Licence of the derived data
   of wordfreq's data and is distributed under the Creative Commons
   Attribution-ShareAlike 4.0 International licence (CC BY-SA 4.0). The full
   text is in CC-BY-SA-4.0.txt. dict.bin is a separate data file loaded at run
-  time; the licence of the surrounding program code (MIT) is not affected.
+  time; the licence of the surrounding program code (GPL-3.0-only) is not affected.
   No additional restrictions are applied to the data.
 
 Apache License 2.0 notice (wordfreq code)

@@ -39,16 +39,16 @@ ParaCrawl, SUBTLEX (the "credit the SUBTLEX authors" condition), NewsCrawl, Redd
 - Strictest term is CC BY-SA 4.0 on the data files. The shipped list is a derived
   aggregate of word counts (facts), but treat it conservatively as a CC BY-SA 4.0
   adaptation of wordfreq's data.
-- Obligations when shipping a derived binary dictionary (`dict.bin`) inside the MIT app:
+- Obligations when shipping a derived binary dictionary (`dict.bin`) inside the GPL-3.0-only app:
   1. Attribution: credit wordfreq (Robyn Speer), name the Persian sources (Wikipedia,
      OpenSubtitles via OPUS, OSCAR, Twitter statistics), link CC BY-SA 4.0, and state that
      changes were made (filtered, normalised, converted). Put this in the installer/about
      text and a THIRD-PARTY-NOTICES file; include the Apache-2.0 notice for wordfreq.
-  2. Share-alike: applies to the dictionary data (the adaptation), not to the MIT code,
+  2. Share-alike: applies to the dictionary data (the adaptation), not to the GPL code,
      provided the dictionary is a separate file loaded at runtime (do not `include_bytes!`
      it into the DLL). Distribute the dictionary under CC BY-SA 4.0 and give the build
      recipe (`tools/wordlist/`), which is public. Keep the data file licence marking
-     separate from the MIT code licence in README/LICENSE.
+     separate from the GPL code licence in README/LICENSE.
   3. No additional restrictions (no DRM-style terms on the dictionary file).
 - Red flags: (a) wordfreq is unmaintained, data is dated (slang/new words missing);
   (b) Twitter/OSCAR/OpenSubtitles text is user-generated and includes profanity and noisy

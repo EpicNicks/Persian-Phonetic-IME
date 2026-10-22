@@ -61,4 +61,4 @@ An input method runs inside every application. A crashing or misbehaving develop
 
 ## Licence
 
-MIT, as declared in the workspace `Cargo.toml`. No `LICENSE` file has been added yet (TODO: add the standard MIT text with the author's name).
+GNU General Public License v3.0 only (`GPL-3.0-only`); see `LICENSE`. The bundled dictionary data (`dict.bin` and `data/dict/*.tsv`) is a separate work under CC BY-SA 4.0; see `data/dict/NOTICE.txt`.
