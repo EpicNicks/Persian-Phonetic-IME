@@ -59,6 +59,16 @@ Building is safe anywhere. Installing is not: the MSI (`installer/build.ps1`, se
 
 An input method runs inside every application. A crashing or misbehaving development build can break typing system-wide. **Never register a development build on a machine whose only keyboard is that machine's default.** Test registration only in a VM or Windows Sandbox, and keep another keyboard layout available (Win+Space). A kill switch is planned: setting the registry value `Disabled` under `HKCU\Software\PersianPhoneticIme` (also checked under HKLM) turns the IME off.
 
+## Download
+
+Installers are published on the [Releases page](https://github.com/EpicNicks/Persian-Phonetic-IME/releases). Releases are pre-release until the text service has been verified in a VM (see Status).
+
+Release builds are currently **unsigned**, so Windows SmartScreen will warn and the IME may be ignored in some modern (immersive) apps. Verify a download against the `.sha256` file attached to the release.
+
+## Privacy
+
+See [PRIVACY.md](PRIVACY.md). This program will not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it.
+
 ## Licence
 
 GNU General Public License v3.0 only (`GPL-3.0-only`); see `LICENSE`. The bundled dictionary data (`dict.bin` and `data/dict/*.tsv`) is a separate work under CC BY-SA 4.0; see `data/dict/NOTICE.txt`.

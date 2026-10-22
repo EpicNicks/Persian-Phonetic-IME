@@ -86,7 +86,9 @@
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="PRODUCTROOT" Name="Persian Phonetic IME">
-        <Directory Id="INSTALLFOLDER" Name="$(Version)" />
+        <Directory Id="INSTALLFOLDER" Name="$(Version)">
+          <Directory Id="LICENSESDIR" Name="licenses" />
+        </Directory>
       </Directory>
     </StandardDirectory>
 
@@ -121,8 +123,15 @@
            the old; the old copy goes with the old product (or at reboot if a host app maps it). -->
       <Component Id="Dictionary">
         <File Id="DictBin" Name="dict.bin" Source="$(StageDir)\dict.bin" KeyPath="yes" />
-        <File Id="ThirdPartyNotices" Name="THIRD-PARTY-NOTICES.txt" Source="$(StageDir)\THIRD-PARTY-NOTICES.txt" />
-        <File Id="LicenseCcBySa" Name="CC-BY-SA-4.0.txt" Source="$(StageDir)\licenses\CC-BY-SA-4.0.txt" Subdirectory="licenses" />
+      </Component>
+      <Component Id="ThirdPartyNoticesFile">
+        <File Id="ThirdPartyNotices" Name="THIRD-PARTY-NOTICES.txt" Source="$(StageDir)\THIRD-PARTY-NOTICES.txt" KeyPath="yes" />
+      </Component>
+      <Component Id="LicenseGplFile" Directory="LICENSESDIR">
+        <File Id="LicenseGpl" Name="GPL-3.0.txt" Source="$(StageDir)\licenses\GPL-3.0.txt" KeyPath="yes" />
+      </Component>
+      <Component Id="LicenseCcBySaFile" Directory="LICENSESDIR">
+        <File Id="LicenseCcBySa" Name="CC-BY-SA-4.0.txt" Source="$(StageDir)\licenses\CC-BY-SA-4.0.txt" KeyPath="yes" />
       </Component>
 <?if $(Placeholder) = 1?>
       <Component Id="PlaceholderNote">

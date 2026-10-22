@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Persian Phonetic IME</title>
+<meta name="description" content="Type Persian on Windows from Latin letters. Free, open source, private.">
+<style>
+  :root {
+    --bg: #fbfaf7;
+    --fg: #1d1d1b;
+    --muted: #5d5d57;
+    --card: #ffffff;
+    --line: #e4e1d8;
+    --accent: #0f6b5c;
+    --accent-fg: #ffffff;
+    --warn-bg: #fff4d6;
+    --warn-line: #e5c35a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #ecebe6;
+      --muted: #a5a39a;
+      --card: #1f2024;
+      --line: #33343a;
+      --accent: #3fb59f;
+      --accent-fg: #0d1514;
+      --warn-bg: #2e2812;
+      --warn-line: #6b5a1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; padding: 3rem 1rem 4rem; }
+  h1 { font-size: 2rem; margin: 0 0 .25rem; line-height: 1.2; }
+  h2 { font-size: 1.25rem; margin: 2.5rem 0 .75rem; }
+  p { margin: .5rem 0; }
+  .lead { color: var(--muted); font-size: 1.125rem; }
+  a { color: var(--accent); }
+  .btn {
+    display: inline-block;
+    margin: 1rem .5rem .5rem 0;
+    padding: .65rem 1.2rem;
+    border-radius: 8px;
+    background: var(--accent);
+    color: var(--accent-fg);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .btn.alt { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); }
+  th, td { padding: .5rem .75rem; text-align: left; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: .875rem; }
+  tr:last-child td { border-bottom: 0; }
+  .fa { font-size: 1.35rem; direction: rtl; unicode-bidi: isolate; font-family: "Segoe UI", Tahoma, sans-serif; }
+  code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: .05rem .35rem; font-size: .9em; }
+  .note {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-line);
+    border-radius: 8px;
+    padding: .75rem 1rem;
+    margin: 1rem 0;
+  }
+  ul { padding-left: 1.25rem; }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .875rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Persian Phonetic IME</h1>
+  <p class="lead">Type Latin letters, get Persian script. A free, open-source input method for Windows.</p>
+
+  <a class="btn" href="https://github.com/EpicNicks/Persian-Phonetic-IME/releases">Download</a>
+  <a class="btn alt" href="https://github.com/EpicNicks/Persian-Phonetic-IME">Source on GitHub</a>
+
+  <div class="note">
+    <strong>Pre-release.</strong> The installer is unsigned, so Windows SmartScreen will warn you,
+    and the input method may be ignored in some modern Windows apps. It has had little testing on real
+    machines. Keep another keyboard layout available (Win+Space) in case you want to switch back.
+  </div>
+
+  <h2>How it works</h2>
+  <p>
+    The mapping is letter by letter, with no dictionary guessing. You spell the letters that appear in
+    the Persian word. Vowels are typed only when they appear in the Persian spelling, and every
+    <code>a</code> becomes ا.
+  </p>
+  <table>
+    <thead><tr><th>You type</th><th>You get</th></tr></thead>
+    <tbody>
+      <tr><td><code>slam</code></td><td class="fa">سلام</td></tr>
+      <tr><td><code>khub</code></td><td class="fa">خوب</td></tr>
+      <tr><td><code>shir</code></td><td class="fa">شیر</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Features</h2>
+  <ul>
+    <li>The whole current word is shown underlined while you type. Space, Enter or punctuation commits it. Backspace edits the Latin letters, Escape cancels.</li>
+    <li>Ambiguous letters have a numbered candidate list. For example <code>s</code> can be س ص ث. Press Tab or Down, then <code>1</code>–<code>9</code>.</li>
+    <li>Persian digits and punctuation by default, and Shift+Space for the zero-width non-joiner (می‌خواهم).</li>
+    <li>Optional word suggestions from a bundled dictionary, with a profanity filter.</li>
+    <li>Configurable with an optional TOML file. A mistake in it never stops you typing.</li>
+  </ul>
+
+  <h2>Install</h2>
+  <ol>
+    <li>Download <code>PersianPhoneticIme-0.1.0-x64.msi</code> from the <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/releases">Releases page</a>. Check it against the attached <code>.sha256</code> file.</li>
+    <li>Run it. It needs 64-bit Windows 10 or later and asks for administrator approval.</li>
+    <li>Switch to it with Win+Space, or add it under Settings, Time &amp; language, Language.</li>
+  </ol>
+
+  <h2>Privacy</h2>
+  <p>
+    No network access, no telemetry, and typed text is never logged or stored.
+    <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/blob/master/PRIVACY.md">Read the privacy policy.</a>
+  </p>
+
+  <h2>Licence</h2>
+  <p>
+    GNU General Public License v3.0. The bundled word-frequency dictionary is derived from
+    <a href="https://github.com/rspeer/wordfreq">wordfreq</a> data and is licensed CC BY-SA 4.0.
+    Report problems on the <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/issues">issue tracker</a>.
+  </p>
+
+  <footer>Persian Phonetic IME is not affiliated with Microsoft.</footer>
+</main>
+</body>
+</html>

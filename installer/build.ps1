@@ -148,6 +148,7 @@ if (-not (Test-Path -LiteralPath $DictBin -PathType Leaf) -or (Get-Item -Literal
 Copy-Item $NoticeSrc (Join-Path $Stage 'THIRD-PARTY-NOTICES.txt')
 New-Item -ItemType Directory -Force (Join-Path $Stage 'licenses') | Out-Null
 Copy-Item $LicenseSrc (Join-Path $Stage 'licenses\CC-BY-SA-4.0.txt')
+Copy-Item (Join-Path $Root 'LICENSE') (Join-Path $Stage 'licenses\GPL-3.0.txt')
 if ($Placeholder) {
     @"
 PLACEHOLDER BUILD - NOT A RELEASE.
