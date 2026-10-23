@@ -39,3 +39,6 @@ spike/dist/
 spike/target*/
 crates/pime-tip/dist/
 installer/out/
+
+# Vercel CLI link (org/project ids)
+site/.vercel/
