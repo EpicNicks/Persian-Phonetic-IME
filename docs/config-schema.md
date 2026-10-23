@@ -34,6 +34,8 @@ Each of steps 2-5 is applied entry by entry, so one bad entry never discards the
 | `candidate_position` | string | `"below"`, `"above"` | `"below"` | Where the candidate window opens: below the preedit (Google Japanese IME style) or above it. UI only; the window still flips to the other side when there is no room. |
 | `toggle_hotkey` | string | `"none"`, ``"alt+`"``, ``"ctrl+`"``, `"ctrl+space"`, `"ctrl+shift+space"`, `"ctrl+alt+space"` | `"none"` | Shortcut that switches between Persian and Latin typing (registered with TSF as a preserved key; applies after a config reload). |
 | `candidate_size` | integer | 25-300 (clamped) | `50` | Size of the candidate window in percent; 100 is the original large size. UI only. |
+| `theme` **(addition)** | string | `"system"`, `"light"`, `"dark"` | `"system"` | Look of the settings window; `system` follows the Windows app mode. Settings app only; the installer can preset it. |
+| `glass_opacity` **(addition)** | integer | 20-100 (clamped by the settings app) | `100` | How solid the settings window's glass panels are, in percent. Settings app only. |
 | `allow_arabic_forms` **(addition: location)** | bool | | `false` | Silences the Arabic-only code point warning (U+064A, U+0643, U+0629). PLAN names the flag but not where it lives. |
 | `allow_sequences` **(addition: location)** | bool | | `false` | Permits candidates of more than one code point (e.g. `"لا"`). |
 

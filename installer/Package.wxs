@@ -20,7 +20,13 @@
   (ENABLE_ALL_USERS=1) for every other user at their next logon. See README "Per-user enable".
 
   Preprocessor variables (all passed by build.ps1; GUIDs are read from crates/pime-setup/src/guids.rs):
-    Version, StageDir, TipClsid, TipProfile, UpgradeCode, ActiveSetupId, [Placeholder=0|1], [GuidArgs]
+    Version, StageDir, TipClsid, TipProfile, UpgradeCode, ActiveSetupId, PreviewDir, LicenseRtf,
+    [Placeholder=0|1], [GuidArgs]
+
+  Appearance page: WixUI_Minimal (welcome + licence) with one extra dialog first (ThemeDlg) where the
+  user picks how the settings window looks. The three previews are drawn by the real renderer
+  (the pime-settings render-preview command). The choice is the public property THEME (system|light|dark;
+  msiexec with THEME=dark) and is written to the installing user's config.toml after install.
 -->
 <?ifndef Version?><?error Define Version (e.g. -d Version=0.1.0)?><?endif?>
 <?ifndef StageDir?><?error Define StageDir (folder with the staged payload)?><?endif?>
@@ -28,6 +34,8 @@
 <?ifndef TipProfile?><?error Define TipProfile?><?endif?>
 <?ifndef UpgradeCode?><?error Define UpgradeCode?><?endif?>
 <?ifndef ActiveSetupId?><?error Define ActiveSetupId?><?endif?>
+<?ifndef PreviewDir?><?error Define PreviewDir (folder with theme-light/dark/system.bmp)?><?endif?>
+<?ifndef LicenseRtf?><?error Define LicenseRtf (licence text as RTF for the wizard)?><?endif?>
 <?ifndef Placeholder?><?define Placeholder = 0?><?endif?>
 <?ifndef GuidArgs?><?define GuidArgs = ""?><?endif?>
 <?if $(Placeholder) = 1?>
@@ -38,7 +46,7 @@
 <?define DllX64Name = "PersianPhoneticIme.$(Version).x64.dll"?>
 <?define DllX86Name = "PersianPhoneticIme.$(Version).x86.dll"?>
 
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Persian Phonetic IME$(NameSuffix)"
            Manufacturer="Persian Phonetic IME"
            Version="$(Version)"
@@ -67,12 +75,14 @@
     <!-- The TIP DLL is loaded by nearly every process; a Restart Manager "close these apps" prompt
          would list all of them. Versioned file names make closing them unnecessary. -->
     <Property Id="MSIRESTARTMANAGERCONTROL" Value="Disable" />
-    <Property Id="ARPNOMODIFY" Value="1" />
     <Property Id="ARPCOMMENTS" Value="Phonetic Persian input method (type Persian from Latin letters)." />
 
     <!-- Per-user enable switches (public, can be set on the msiexec command line). -->
     <Property Id="ENABLE_FOR_INSTALLING_USER" Value="1" Secure="yes" />
     <Property Id="ENABLE_ALL_USERS" Value="0" Secure="yes" />
+
+    <!-- Look of the settings window, chosen on the Appearance page: system, light or dark. -->
+    <Property Id="THEME" Value="system" Secure="yes" />
 
     <!-- Current registrations, used by rollback to restore the previous version's InprocServer32. -->
     <Property Id="PREVDLLX64" Secure="yes">
@@ -153,6 +163,46 @@
       </RegistryKey>
     </Component>
 
+    <WixVariable Id="WixUILicenseRtf" Value="$(LicenseRtf)" />
+    <Binary Id="ThemePreviewLight" SourceFile="$(PreviewDir)\theme-light.bmp" />
+    <Binary Id="ThemePreviewDark" SourceFile="$(PreviewDir)\theme-dark.bmp" />
+    <Binary Id="ThemePreviewSystem" SourceFile="$(PreviewDir)\theme-system.bmp" />
+
+    <ui:WixUI Id="WixUI_Minimal" />
+
+    <UI>
+      <!-- Shown before the welcome/licence page on a fresh install; silent installs skip it. -->
+      <Dialog Id="ThemeDlg" Width="370" Height="270" Title="Persian Phonetic IME Setup">
+        <Control Id="Title" Type="Text" X="15" Y="8" Width="340" Height="16" Transparent="yes" NoPrefix="yes"
+                 Text="{\WixUI_Font_Title}Choose how Settings looks" />
+        <Control Id="Intro" Type="Text" X="15" Y="28" Width="340" Height="26" Transparent="yes" NoPrefix="yes"
+                 Text="The settings window can follow Windows or always use a light or dark look. You can change this later under Appearance in Settings." />
+        <!-- Bitmap radio group: each choice is its preview picture; the picked one shows pressed. -->
+        <Control Id="ThemeChoice" Type="RadioButtonGroup" X="15" Y="62" Width="340" Height="76" Property="THEME" Bitmap="yes">
+          <RadioButtonGroup Property="THEME">
+            <RadioButton Value="system" X="0" Y="0" Width="108" Height="72" Text="ThemePreviewSystem" />
+            <RadioButton Value="light" X="116" Y="0" Width="108" Height="72" Text="ThemePreviewLight" />
+            <RadioButton Value="dark" X="232" Y="0" Width="108" Height="72" Text="ThemePreviewDark" />
+          </RadioButtonGroup>
+        </Control>
+        <Control Id="LabelSystem" Type="Text" X="15" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Follow Windows" />
+        <Control Id="LabelLight" Type="Text" X="131" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Light" />
+        <Control Id="LabelDark" Type="Text" X="247" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Dark" />
+        <Control Id="Hint" Type="Text" X="15" Y="170" Width="340" Height="26" Transparent="yes" NoPrefix="yes"
+                 Text="Follow Windows switches between light and dark with your Windows app mode." />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="Next">
+          <Publish Event="EndDialog" Value="Return" />
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="Cancel">
+          <Publish Event="SpawnDialog" Value="CancelDlg" />
+        </Control>
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+      </Dialog>
+      <InstallUISequence>
+        <Show Dialog="ThemeDlg" Before="WelcomeEulaDlg" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED" />
+      </InstallUISequence>
+    </UI>
+
     <Feature Id="Main" Title="Persian Phonetic IME" AllowAbsent="no">
       <ComponentGroupRef Id="Payload" />
       <ComponentRef Id="ActiveSetup" />
@@ -227,6 +277,13 @@
     <CustomAction Id="DisableUser" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
                   Execute="immediate" Return="ignore" />
 
+    <!-- Fresh install: save the chosen look to the installing user's config.toml (system is the
+         default, so nothing is written for it). Same user-context rules as EnableUser. -->
+    <CustomAction Id="SetApplyThemeCmd" Property="WixQuietExec64CmdLine"
+                  Value="&quot;[INSTALLFOLDER]pime-settings.exe&quot; --set-theme [THEME]" />
+    <CustomAction Id="ApplyTheme" BinaryRef="Wix4UtilCA_X64" DllEntry="WixQuietExec64"
+                  Execute="immediate" Return="ignore" />
+
     <?define Installing = NOT REMOVE~="ALL"?>
     <?define Uninstalling = REMOVE~="ALL" AND NOT UPGRADINGPRODUCTCODE?>
     <?define NotSystem = NOT (UserSID = "S-1-5-18")?>
@@ -268,6 +325,11 @@
               Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND ENABLE_FOR_INSTALLING_USER = &quot;1&quot; AND $(NotSystem)" />
       <Custom Action="EnableUser" After="SetEnableUserCmd"
               Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND ENABLE_FOR_INSTALLING_USER = &quot;1&quot; AND $(NotSystem)" />
+
+      <Custom Action="SetApplyThemeCmd" After="EnableUser"
+              Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND THEME &lt;&gt; &quot;system&quot; AND $(NotSystem)" />
+      <Custom Action="ApplyTheme" After="SetApplyThemeCmd"
+              Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED AND THEME &lt;&gt; &quot;system&quot; AND $(NotSystem)" />
     </InstallExecuteSequence>
   </Package>
 </Wix>

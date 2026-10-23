@@ -114,6 +114,26 @@ $SetupX86 = Join-Path $TargetDir 'i686-pc-windows-msvc\release\pime-setup.exe'
 $SettingsExe = Join-Path $TargetDir 'x86_64-pc-windows-msvc\release\pime-settings.exe'
 foreach ($p in $SetupX64, $SetupX86, $SettingsExe) { if (-not (Test-Path $p)) { throw "Missing build output $p" } }
 
+# --- appearance page: previews drawn by the real renderer, licence as RTF ---------------------------
+# pime-settings --render-preview only draws three bitmaps; it touches no settings or registry.
+$PreviewDir = Join-Path $OutDir 'previews'
+New-Item -ItemType Directory -Force $PreviewDir | Out-Null
+Invoke-Checked $SettingsExe @('--render-preview', $PreviewDir)
+foreach ($n in 'light', 'dark', 'system') {
+    if (-not (Test-Path -LiteralPath (Join-Path $PreviewDir "theme-$n.bmp") -PathType Leaf)) { throw "Missing preview theme-$n.bmp" }
+}
+$LicenseRtf = Join-Path $OutDir 'license.rtf'
+$licenseText = (Get-Content -Raw -Encoding UTF8 (Join-Path $Root 'LICENSE')) -replace "`r`n", "`n"
+$rtfBody = New-Object System.Text.StringBuilder
+foreach ($ch in $licenseText.ToCharArray()) {
+    if ($ch -eq [char]92 -or $ch -eq '{' -or $ch -eq '}') { [void]$rtfBody.Append([char]92).Append($ch) }
+    elseif ($ch -eq "`n") { [void]$rtfBody.Append([char]92).Append("par`r`n") }
+    elseif ([int]$ch -gt 127) { [void]$rtfBody.Append([char]92).Append('u').Append([int]$ch).Append('?') }
+    else { [void]$rtfBody.Append($ch) }
+}
+$rtf = '{\rtf1\ansi\deff0{\fonttbl{\f0\fmodern Consolas;}}\f0\fs18 ' + $rtfBody.ToString() + '}'
+[IO.File]::WriteAllText($LicenseRtf, $rtf, [Text.Encoding]::ASCII)
+
 # --- dictionary (AC-G): dict.bin + notices, built into the stage folder below ---------------------
 $DictSrc = Join-Path $Root 'data\dict'
 $DictTsvs = @('fa-wordfreq.tsv', 'wordfreq-fa.tsv', 'extra.tsv') | ForEach-Object { Join-Path $DictSrc $_ } |
@@ -190,6 +210,9 @@ $ext = & $wixExe extension list -g
 if (-not ($ext -match 'WixToolset\.Util\.wixext 5\.')) {
     throw 'WiX Util extension missing. Install: wix extension add -g WixToolset.Util.wixext/5.0.2'
 }
+if (-not ($ext -match 'WixToolset\.UI\.wixext 5\.')) {
+    throw 'WiX UI extension missing. Install: wix extension add -g WixToolset.UI.wixext/5.0.2'
+}
 
 $suffix = if ($Placeholder) { '-PLACEHOLDER' } else { '' }
 $Msi = Join-Path $OutDir "PersianPhoneticIme-$Version-x64$suffix.msi"
@@ -197,6 +220,7 @@ $wixArgs = @(
     'build', (Join-Path $Installer 'Package.wxs'),
     '-arch', 'x64',
     '-ext', 'WixToolset.Util.wixext',
+    '-ext', 'WixToolset.UI.wixext',
     '-d', "Version=$Version",
     '-d', "StageDir=$Stage",
     '-d', "TipClsid=$TipClsid",
@@ -204,6 +228,8 @@ $wixArgs = @(
     '-d', "UpgradeCode=$($Guids.MSI_UPGRADE_CODE)",
     '-d', "ActiveSetupId=$($Guids.ACTIVE_SETUP_ID)",
     '-d', "Placeholder=$([int]$Placeholder)",
+    '-d', "PreviewDir=$PreviewDir",
+    '-d', "LicenseRtf=$LicenseRtf",
     '-o', $Msi
 )
 if ($GuidArgs) { $wixArgs += @('-d', "GuidArgs=$GuidArgs") }

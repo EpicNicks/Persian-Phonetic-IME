@@ -237,6 +237,13 @@ pub const CANDIDATE_SIZE_MAX: u32 = 300;
 /// `candidate_size` default.
 pub const CANDIDATE_SIZE_DEFAULT: u32 = 50;
 
+/// `glass_opacity` lower bound (percent); the settings window clamps to this range.
+pub const GLASS_OPACITY_MIN: u32 = 20;
+/// `glass_opacity` upper bound.
+pub const GLASS_OPACITY_MAX: u32 = 100;
+/// `glass_opacity` default.
+pub const GLASS_OPACITY_DEFAULT: u32 = 100;
+
 /// The kind of value a setting takes, with its allowed values.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OptionKind {
@@ -345,6 +352,13 @@ const OPTIONS: &[OptionSpec] = &[
         name: "candidate_size",
         kind: OptionKind::Integer { min: 1 },
         default: Some(DefaultValue::Int(CANDIDATE_SIZE_DEFAULT as i64)),
+    },
+    // Settings-app look; ignored by the IME itself.
+    choice("theme", &["system", "light", "dark"]),
+    OptionSpec {
+        name: "glass_opacity",
+        kind: OptionKind::Integer { min: 1 },
+        default: Some(DefaultValue::Int(GLASS_OPACITY_DEFAULT as i64)),
     },
     flag("allow_arabic_forms", false),
     flag("allow_sequences", false),

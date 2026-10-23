@@ -124,6 +124,15 @@ pub const FORM_OPTIONS: &[FormOption] = &[
         label: "List of alternatives opens",
         value_labels: &[("below", "Below the word"), ("above", "Above the word")],
     },
+    FormOption {
+        key: "theme",
+        label: "Settings window look",
+        value_labels: &[
+            ("system", "Follow Windows"),
+            ("light", "Light"),
+            ("dark", "Dark"),
+        ],
+    },
 ];
 
 fn value_name(v: &OptionValue) -> String {

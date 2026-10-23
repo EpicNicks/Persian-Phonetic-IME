@@ -253,12 +253,34 @@
     text-underline-offset: .2em;
   }
 
-  .config { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 21rem); gap: 2rem; align-items: start; }
+  .config { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 27rem); gap: 2rem; align-items: start; }
   .config ul { max-width: 40rem; margin: 0 0 1rem; padding-left: 1.2rem; }
   .config li { margin-bottom: .35rem; }
   .config li::marker { color: var(--saffron); }
   .shot { margin: 0; }
   .shot img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: .4rem; box-shadow: .6rem .6rem 0 var(--saffron); }
+  .shot input { position: absolute; opacity: 0; pointer-events: none; }
+  .looks { position: relative; }
+  .looks img { display: none; }
+  .looks .light { display: block; }
+  @media (prefers-color-scheme: dark) {
+    .looks .light { display: none; }
+    .looks .dark { display: block; }
+  }
+  #look-light:checked ~ .looks .light { display: block; }
+  #look-light:checked ~ .looks .dark { display: none; }
+  #look-dark:checked ~ .looks .light { display: none; }
+  #look-dark:checked ~ .looks .dark { display: block; }
+  .modes { display: inline-flex; gap: .25rem; margin-top: 1.4rem; padding: .25rem; border: 1px solid var(--line); border-radius: 2rem; background: var(--card); }
+  .modes label { padding: .3rem .95rem; border-radius: 2rem; color: var(--muted); font-size: .875rem; cursor: pointer; }
+  .modes label:hover { color: var(--fg); }
+  #look-system:checked ~ .modes [for=look-system],
+  #look-light:checked ~ .modes [for=look-light],
+  #look-dark:checked ~ .modes [for=look-dark] { background: var(--saffron); color: #1a1300; font-weight: 600; }
+  .shot input:focus-visible ~ .modes label { outline: 0; }
+  #look-system:focus-visible ~ .modes [for=look-system],
+  #look-light:focus-visible ~ .modes [for=look-light],
+  #look-dark:focus-visible ~ .modes [for=look-dark] { outline: 2px solid var(--fg); outline-offset: 2px; }
   .shot figcaption { margin-top: 1.1rem; color: var(--muted); font-size: .875rem; }
 
   dl { margin: 0; }
@@ -278,7 +300,7 @@
     header { padding-top: 2rem; }
     section { grid-template-columns: 1fr; padding: 2.25rem 0; }
     .config { grid-template-columns: 1fr; }
-    .shot { max-width: 21rem; }
+    .shot { max-width: 27rem; }
   }
   @media (max-width: 36rem) {
     .pairs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
@@ -385,7 +407,7 @@
     <div class="body config">
       <div>
         <p>
-          The settings window saves each option as soon as you change it. Choose what you want from:
+          The settings window saves each option as soon as you change it, and its look and glass opacity are settings too. Choose what you want from:
         </p>
         <ul>
           <li>whether <code>gh</code> types غ or ق, and what a lone <code>c</code> does</li>
@@ -400,9 +422,21 @@
         </p>
       </div>
       <figure class="shot">
-        <img src="img/settings.png" width="656" height="1100" loading="lazy"
-             alt="The settings window: a settings file path, buttons to open the config file, reset to defaults and check again, then drop-down options for gh, q, c, digits, punctuation, Enter and Space, and checkboxes for word completion.">
-        <figcaption>The settings window.</figcaption>
+        <input type="radio" name="look" id="look-system" checked>
+        <input type="radio" name="look" id="look-light">
+        <input type="radio" name="look" id="look-dark">
+        <div class="looks">
+          <img class="light" src="img/settings-light.png" width="720" height="640" loading="lazy"
+               alt="The settings window in its light look: a Try typing box showing salaam khoobi in Persian, tabs for Letters, Keys and list, Word completion, Appearance and Settings file, and drop-down options for gh, q, c, digits, punctuation, quotes and Shift.">
+          <img class="dark" src="img/settings-dark.png" width="720" height="640" loading="lazy"
+               alt="The same settings window in its dark look.">
+        </div>
+        <div class="modes" role="group" aria-label="Window look">
+          <label for="look-system">System</label>
+          <label for="look-light">Light</label>
+          <label for="look-dark">Dark</label>
+        </div>
+        <figcaption>The settings window follows Windows, or stays light or dark.</figcaption>
       </figure>
     </div>
   </section>

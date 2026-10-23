@@ -76,6 +76,13 @@ toggle_hotkey = "none"
 # size; 50 is the default.
 candidate_size = 50
 
+# Look of the settings window: "system" (follows Windows, default), "light" or "dark".
+theme = "system"
+
+# How solid the glass panels of the settings window are, in percent (20-100).
+# Lower shows more of the background; 100 is the default.
+glass_opacity = 100
+
 # Advanced: allow the Arabic-only letters ي ك ة in [map] entries without a
 # warning (Persian uses ی and ک), and allow entries of more than one letter.
 allow_arabic_forms = false

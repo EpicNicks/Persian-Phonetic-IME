@@ -19,6 +19,7 @@ pub mod cli;
 pub mod defaults;
 pub mod dictionary;
 pub mod edit;
+pub mod glass;
 pub mod learned;
 pub mod options;
 pub mod paths;

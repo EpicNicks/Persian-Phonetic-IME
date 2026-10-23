@@ -403,7 +403,7 @@ fn messages_never_quote_control_characters() {
 #[test]
 fn option_specs_are_the_validators_source() {
     let names: Vec<&str> = option_specs().iter().map(|s| s.name).collect();
-    assert_eq!(names.len(), 20);
+    assert_eq!(names.len(), 22);
     for spec in option_specs() {
         // The name is accepted (no "unknown setting") and defaults match the resolved values.
         if let Some(default) = spec.default_value() {

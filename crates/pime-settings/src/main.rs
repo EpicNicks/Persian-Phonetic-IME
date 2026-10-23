@@ -54,6 +54,14 @@ fn run() -> i32 {
             }
             code
         }
+        Command::SetTheme(theme) => {
+            let code = cli::run_set_theme(&paths, &theme, &mut out, &mut err);
+            if code == exit::OK {
+                notify_reload(&mut err);
+            }
+            code
+        }
+        Command::RenderPreview(dir) => render_preview(&dir, &mut err),
         Command::Open => open(&paths, &mut err),
         Command::Ui | Command::ShowErrors => window(&paths, cmd == Command::ShowErrors),
         Command::Help | Command::PrintDefault => unreachable!(),
@@ -69,6 +77,26 @@ fn notify_reload(err: &mut dyn Write) {
             "pime-settings: couldn't notify the IME ({e}); it reloads on the next focus change."
         );
     }
+}
+
+#[cfg(windows)]
+fn render_preview(dir: &std::path::Path, err: &mut dyn Write) -> i32 {
+    match ui::render_previews(dir) {
+        Ok(()) => exit::OK,
+        Err(e) => {
+            let _ = writeln!(err, "Couldn't write the previews to {}: {e}", dir.display());
+            exit::IO_ERROR
+        }
+    }
+}
+
+#[cfg(not(windows))]
+fn render_preview(_dir: &std::path::Path, err: &mut dyn Write) -> i32 {
+    let _ = writeln!(
+        err,
+        "pime-settings: --render-preview is only available on Windows."
+    );
+    exit::USAGE
 }
 
 #[cfg(windows)]

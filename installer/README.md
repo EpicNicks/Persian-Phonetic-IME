@@ -11,6 +11,7 @@ Prerequisites: Rust with `x86_64-pc-windows-msvc` and `i686-pc-windows-msvc`, th
 ```
 dotnet tool install --global wix --version 5.0.2
 wix extension add -g WixToolset.Util.wixext/5.0.2
+wix extension add -g WixToolset.UI.wixext/5.0.2
 ```
 
 Then build:
@@ -159,3 +160,7 @@ Run this in Windows Sandbox (fast, Windows 10) and in a Hyper-V VM with a checkp
 | 13 | Install, then delete `dict.bin` from the version folder (or build an MSI without it): typing works in Notepad, completion is silent, no Application Error events | |
 | 14 | Upgrade while a host app (Notepad) has the old `dict.bin` loaded: upgrade completes, no prompt, new apps load the new dictionary, the old folder goes at reboot. `history.bin` is untouched | |
 | 15 | Uninstall leaves `%APPDATA%\PersianPhoneticIme\history.bin` and the config in place; `dict.bin`, `THIRD-PARTY-NOTICES.txt` and `licenses\` are gone | |
+
+## Appearance page
+
+A fresh interactive install shows a page before the licence where the user picks how the settings window looks: Follow Windows, Light or Dark. The three pictures are drawn by the real renderer (`pime-settings --render-preview <dir>`, run by `build.ps1`). The choice is the public property `THEME` (`msiexec /i ... THEME=dark`); for anything but `system` it is saved with `pime-settings --set-theme` in the installing user's context. Silent installs skip the page and keep `system`.

@@ -35,7 +35,8 @@ pub use config::{
     autocomplete_specs, builtin_preset_names, decode_config_bytes, fallback_of, format_issues,
     format_issues_for, load_config, load_config_bytes, load_config_with_base, option_specs,
     ConfigIssue, DecodedConfig, Fallback, IssueKind, LoadedConfig, OptionKind, OptionSpec,
-    OptionValue, ResolvedConfig, Severity, TextEncoding,
+    OptionValue, ResolvedConfig, Severity, TextEncoding, GLASS_OPACITY_DEFAULT, GLASS_OPACITY_MAX,
+    GLASS_OPACITY_MIN,
 };
 pub use labels::candidate_label;
 pub use render::{render, ChoiceOverride};

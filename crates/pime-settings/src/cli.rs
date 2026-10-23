@@ -3,9 +3,11 @@
 use crate::backup::{reset_config, Timestamp};
 use crate::defaults::DEFAULT_CONFIG;
 use crate::dictionary::{dictionary_line, installed_dict_path};
+use crate::edit::{save_setting, Section};
 use crate::learned::{clear_history, CLEARED_MESSAGE};
 use crate::paths::Paths;
 use crate::report::{exit, write_errors_file, Check};
+use pime_core::OptionValue;
 use std::ffi::OsString;
 use std::io::Write;
 use std::path::PathBuf;
@@ -24,6 +26,8 @@ Usage:
   pime-settings --print-default print a commented default config.toml
   pime-settings --clear-history delete the learned words
   pime-settings --open          open config.toml in your editor (created if missing)
+  pime-settings --set-theme T   set the window look: system, light or dark
+  pime-settings --render-preview DIR  write the installer's look previews (Windows)
   pime-settings --help          show this text
 
 Exit codes: 0 no problems (notes allowed), 1 some settings were skipped,
@@ -50,6 +54,10 @@ pub enum Command {
     ClearHistory,
     /// `--open`.
     Open,
+    /// `--set-theme system|light|dark`.
+    SetTheme(String),
+    /// `--render-preview DIR`.
+    RenderPreview(PathBuf),
     /// `--help`.
     Help,
 }
@@ -70,6 +78,17 @@ pub fn parse(args: impl IntoIterator<Item = OsString>) -> Result<Command, String
         "--print-default" => Command::PrintDefault,
         "--clear-history" => Command::ClearHistory,
         "--open" => Command::Open,
+        "--set-theme" => Command::SetTheme(
+            args.next()
+                .ok_or("--set-theme needs system, light or dark")?
+                .to_string_lossy()
+                .into_owned(),
+        ),
+        "--render-preview" => Command::RenderPreview(
+            args.next()
+                .map(PathBuf::from)
+                .ok_or("--render-preview needs a folder")?,
+        ),
         "--help" | "-h" | "/?" => Command::Help,
         other => return Err(format!("unknown option \"{other}\"")),
     };
@@ -165,6 +184,29 @@ pub fn run_clear_history(paths: &Paths, out: &mut dyn Write, err: &mut dyn Write
     }
 }
 
+/// `--set-theme`: writes `theme` to the config. The caller signals the reload event
+/// afterwards.
+pub fn run_set_theme(paths: &Paths, theme: &str, out: &mut dyn Write, err: &mut dyn Write) -> i32 {
+    if !["system", "light", "dark"].contains(&theme) {
+        let _ = writeln!(
+            err,
+            "The theme must be system, light or dark, not \"{theme}\"."
+        );
+        return exit::USAGE;
+    }
+    let value = OptionValue::Text(theme.to_string());
+    match save_setting(&paths.config_file, Section::Options, "theme", &value) {
+        Ok(()) => {
+            let _ = writeln!(out, "The settings window look is now \"{theme}\".");
+            exit::OK
+        }
+        Err(e) => {
+            let _ = writeln!(err, "Couldn't save the theme: {e}");
+            exit::IO_ERROR
+        }
+    }
+}
+
 /// `--print-default`.
 pub fn run_print_default(out: &mut dyn Write) -> i32 {
     let _ = out.write_all(DEFAULT_CONFIG.as_bytes());
@@ -194,6 +236,34 @@ mod tests {
         assert_eq!(p(&["--show-errors"]), Ok(Command::ShowErrors));
         assert!(p(&["--reset", "x"]).is_err());
         assert!(p(&["--bogus"]).unwrap_err().contains("--bogus"));
+        assert_eq!(
+            p(&["--set-theme", "dark"]),
+            Ok(Command::SetTheme("dark".into()))
+        );
+        assert!(p(&["--set-theme"]).is_err());
+        assert_eq!(
+            p(&["--render-preview", "out"]),
+            Ok(Command::RenderPreview("out".into()))
+        );
+        assert!(p(&["--render-preview"]).is_err());
+    }
+
+    #[test]
+    fn set_theme_writes_the_option_and_rejects_other_values() {
+        let dir = TempDir::new("cli-theme");
+        let paths = Paths::in_dir(dir.path());
+        let (mut out, mut err) = (Vec::new(), Vec::new());
+        assert_eq!(run_set_theme(&paths, "dark", &mut out, &mut err), exit::OK);
+        let loaded = Check::load(&paths.config_file).unwrap();
+        assert!(loaded.issues().is_empty());
+        assert_eq!(
+            loaded.loaded.config.option_value("theme"),
+            Some(OptionValue::Text("dark".into()))
+        );
+        assert_eq!(
+            run_set_theme(&paths, "neon", &mut out, &mut err),
+            exit::USAGE
+        );
     }
 
     #[test]
