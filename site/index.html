@@ -296,6 +296,9 @@
   .lb-nav:hover { background: var(--saffron); border-color: var(--saffron); color: #1a1300; }
   .lb-prev { left: -3.75rem; }
   .lb-next { right: -3.75rem; }
+  .lb-modes { position: absolute; bottom: 100%; left: 50%; display: flex; gap: .25rem; margin-bottom: 1rem; padding: .25rem; border: 1px solid rgba(255, 255, 255, .3); border-radius: 2rem; background: rgba(10, 15, 38, .6); transform: translateX(-50%); }
+  .lb-modes button { padding: .3rem .95rem; border: 0; border-radius: 2rem; background: transparent; color: #e9ecf6; font: .875rem var(--font); cursor: pointer; }
+  .lb-modes button[aria-pressed=true] { background: var(--saffron); color: #1a1300; font-weight: 600; }
   .lb-tabs { position: absolute; top: 100%; left: 0; right: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: 1rem; }
   .lb-tabs button { padding: .3rem .9rem; border: 1px solid rgba(255, 255, 255, .3); border-radius: 2rem; background: rgba(10, 15, 38, .6); color: #e9ecf6; font: .875rem var(--font); cursor: pointer; }
   .lb-tabs button[aria-current=true] { border-color: var(--saffron); background: var(--saffron); color: #1a1300; font-weight: 600; }
@@ -750,6 +753,7 @@
 
 
 <dialog class="lb" id="lightbox" aria-label="Settings window screenshots">
+  <div class="lb-modes" role="group" aria-label="Window look"></div>
   <div class="lb-stage">
     <button class="lb-nav lb-prev" type="button" aria-label="Previous screenshot">&#8249;</button>
     <img alt="">
@@ -766,6 +770,19 @@
   const img = dlg.querySelector("img");
   const bar = dlg.querySelector(".lb-tabs");
   let mode = "light", at = 0;
+  const modeBar = dlg.querySelector(".lb-modes");
+  const modeButtons = [["light", "Light"], ["dark", "Dark"], ["system", "System"]].map(([id, label]) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", () => {
+      document.getElementById("look-" + id).checked = true;
+      mode = current();
+      show(at);
+    });
+    modeBar.appendChild(b);
+    return [id, b];
+  });
   const buttons = tabs.map((label, n) => {
     const b = document.createElement("button");
     b.type = "button";
@@ -785,6 +802,8 @@
     img.src = "img/settings-" + mode + "-" + at + ".webp";
     img.alt = "The " + tabs[at] + " tab of the settings window in its " + mode + " look.";
     buttons.forEach((b, k) => b.setAttribute("aria-current", k === at));
+    const picked = document.querySelector("input[name=look]:checked").id.slice(5);
+    modeButtons.forEach(([id, b]) => b.setAttribute("aria-pressed", id === picked));
   }
   document.querySelectorAll(".looks a").forEach((a) => a.addEventListener("click", (e) => {
     e.preventDefault();
