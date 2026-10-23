@@ -288,15 +288,15 @@
   #look-dark:focus-visible ~ .modes [for=look-dark] { outline: 2px solid var(--fg); outline-offset: 2px; }
   .shot figcaption { margin-top: 1.25rem; color: var(--muted); font-size: .875rem; }
 
-  .lb { width: auto; max-width: none; max-height: none; padding: 0; border: 0; background: transparent; overflow: visible; color: #fff; }
+  .lb { width: fit-content; margin: auto; max-width: none; max-height: none; padding: 0; border: 0; background: transparent; overflow: visible; color: #fff; }
   .lb::backdrop { background: rgba(6, 9, 22, .78); backdrop-filter: blur(6px); }
   .lb-stage { position: relative; }
-  .lb-stage img { display: block; width: min(92vw, 52rem); max-height: 74vh; object-fit: contain; border-radius: .6rem; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, .5); }
-  .lb-nav { position: absolute; top: 50%; width: 2.75rem; height: 2.75rem; margin-top: -1.375rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: 50%; background: rgba(10, 15, 38, .7); color: #fff; font: 1.25rem/1 var(--font); cursor: pointer; }
+  .lb-stage img { display: block; width: auto; height: auto; max-width: 92vw; max-height: 78vh; border-radius: .6rem; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, .5); }
+  .lb-nav { position: absolute; top: 50%; width: 2.75rem; height: 2.75rem; margin-top: -1.375rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: 50%; background: rgba(10, 15, 38, .7); color: #fff; font: 1.75rem/1 var(--font); cursor: pointer; }
   .lb-nav:hover { background: var(--saffron); border-color: var(--saffron); color: #1a1300; }
   .lb-prev { left: -3.75rem; }
   .lb-next { right: -3.75rem; }
-  .lb-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: 1.1rem; }
+  .lb-tabs { position: absolute; top: 100%; left: 0; right: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: 1rem; }
   .lb-tabs button { padding: .3rem .9rem; border: 1px solid rgba(255, 255, 255, .3); border-radius: 2rem; background: rgba(10, 15, 38, .6); color: #e9ecf6; font: .875rem var(--font); cursor: pointer; }
   .lb-tabs button[aria-current=true] { border-color: var(--saffron); background: var(--saffron); color: #1a1300; font-weight: 600; }
   @media (max-width: 62rem) {
