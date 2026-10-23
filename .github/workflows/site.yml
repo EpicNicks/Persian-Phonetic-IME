@@ -41,4 +41,4 @@ jobs:
       - name: Deploy to Vercel
         if: steps.secrets.outputs.present == 'true'
         working-directory: site
-        run: npx --yes vercel@41 deploy --prod --yes --token "$VERCEL_TOKEN"
+        run: npx --yes vercel@latest deploy --prod --yes --token "$VERCEL_TOKEN"
