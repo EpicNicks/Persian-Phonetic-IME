@@ -5,131 +5,688 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Persian Phonetic IME</title>
 <meta name="description" content="Type Persian on Windows from Latin letters. Free, open source, private.">
+<meta name="color-scheme" content="light dark">
+<link rel="preload" href="fonts/bricolage-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/vazirmatn-arabic.woff2" as="font" type="font/woff2" crossorigin>
 <style>
+  @font-face {
+    font-family: "Bricolage Grotesque";
+    src: url(fonts/bricolage-latin.woff2) format("woff2");
+    font-weight: 400 800;
+    font-display: swap;
+  }
+  @font-face {
+    font-family: "Vazirmatn";
+    src: url(fonts/vazirmatn-arabic.woff2) format("woff2");
+    font-weight: 400 800;
+    font-display: swap;
+    unicode-range: U+0600-06FF, U+0750-077F, U+200C-200E, U+FB50-FDFF, U+FE70-FEFC;
+  }
+
   :root {
-    --bg: #fbfaf7;
-    --fg: #1d1d1b;
-    --muted: #5d5d57;
+    --bg: #eef1f7;
+    --fg: #0c1330;
+    --muted: #4a5272;
+    --line: #cfd5e5;
+    --lapis: #16245f;
+    --lapis-fg: #f4f6fc;
+    --lapis-soft: #aab6e6;
+    --turq: #0b7a72;
+    --saffron: #f0a81c;
+    --note-bg: #e3ecf0;
     --card: #ffffff;
-    --line: #e4e1d8;
-    --accent: #0f6b5c;
-    --accent-fg: #ffffff;
-    --warn-bg: #fff4d6;
-    --warn-line: #e5c35a;
+    --font: "Bricolage Grotesque", system-ui, "Segoe UI", sans-serif;
+    --fa: "Vazirmatn", "Segoe UI", Tahoma, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #16171a;
-      --fg: #ecebe6;
-      --muted: #a5a39a;
-      --card: #1f2024;
-      --line: #33343a;
-      --accent: #3fb59f;
-      --accent-fg: #0d1514;
-      --warn-bg: #2e2812;
-      --warn-line: #6b5a1c;
+      --bg: #0a0f26;
+      --fg: #e9ecf6;
+      --muted: #9ba5c9;
+      --line: #25306a;
+      --lapis: #16245f;
+      --turq: #3fc5b8;
+      --note-bg: #111a3a;
+      --card: #101a40;
     }
   }
+
   * { box-sizing: border-box; }
+  ::selection { background: var(--saffron); color: #1a1300; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { overflow-x: hidden; }
   body {
     margin: 0;
     background: var(--bg);
     color: var(--fg);
-    font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif;
+    font: 400 1.0625rem/1.6 var(--font);
+    font-variation-settings: "opsz" 14;
   }
-  main { max-width: 46rem; margin: 0 auto; padding: 3rem 1rem 4rem; }
-  h1 { font-size: 2rem; margin: 0 0 .25rem; line-height: 1.2; }
-  h2 { font-size: 1.25rem; margin: 2.5rem 0 .75rem; }
-  p { margin: .5rem 0; }
-  .lead { color: var(--muted); font-size: 1.125rem; }
-  a { color: var(--accent); }
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.25rem; }
+  a { color: var(--turq); text-underline-offset: .2em; }
+  a:focus-visible, button:focus-visible, input:focus-visible {
+    outline: 3px solid var(--saffron);
+    outline-offset: 3px;
+  }
+  .fa { font-family: var(--fa); direction: rtl; unicode-bidi: isolate; }
+
+  /* hero */
+  header { padding: 3.5rem 0 2rem; }
+  .name { margin: 0 0 2.5rem; font-weight: 600; font-size: 1rem; color: var(--muted); }
+  h1 {
+    margin: 0;
+    max-width: 20ch;
+    font-weight: 700;
+    font-size: clamp(2.4rem, 7vw, 4.75rem);
+    line-height: 1;
+    letter-spacing: -.035em;
+    font-variation-settings: "opsz" 96;
+  }
+  .lead { max-width: 34rem; margin: 1.5rem 0 0; font-size: 1.25rem; color: var(--muted); }
+
+  /* demo */
+  .demo {
+    margin-top: 2.5rem;
+    padding: clamp(1.25rem, 4vw, 2.5rem);
+    background: var(--lapis);
+    color: var(--lapis-fg);
+    border-radius: 1.25rem;
+    box-shadow: inset 0 .4rem 0 var(--saffron);
+  }
+  .demo label { display: block; margin-bottom: .5rem; font-size: .9375rem; color: var(--lapis-soft); }
+  .field {
+    position: relative;
+    margin-top: .25rem;
+    border-bottom: 2px solid var(--lapis-soft);
+    cursor: text;
+  }
+  .field:focus-within { border-bottom-color: var(--saffron); }
+  .ghost {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: transparent;
+    caret-color: transparent;
+    opacity: 0;
+    pointer-events: none;
+    font: 16px var(--font);
+  }
+  .out {
+    min-height: 1.7em;
+    margin: 0;
+    font-size: clamp(2.75rem, 11vw, 5.5rem);
+    font-weight: 500;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+  .out .pre {
+    text-decoration: underline;
+    text-decoration-color: var(--saffron);
+    text-decoration-skip-ink: none;
+    text-decoration-thickness: .06em;
+    text-underline-offset: .22em;
+  }
+  .caret {
+    display: none;
+    width: 2px;
+    height: 1.1em;
+    margin: 0 1px;
+    vertical-align: -.15em;
+    background: var(--saffron);
+  }
+  .field:focus-within .caret { display: inline-block; }
+  .raw {
+    margin: .6rem 0 0;
+    padding-top: .5rem;
+    min-height: 2rem;
+    border-top: 1px dashed var(--lapis-soft);
+    color: var(--lapis-soft);
+    font-size: .9375rem;
+    letter-spacing: .08em;
+    overflow-wrap: anywhere;
+  }
+  .rc { display: none; width: 2px; height: 1em; margin: 0 1px; vertical-align: -.15em; background: var(--saffron); letter-spacing: 0; }
+  .stage:focus-within .rc { display: inline-block; }
+  .raw:empty::before { content: "Your Latin keystrokes show here."; letter-spacing: 0; opacity: .75; }
+  .stage { position: relative; }
+  .picker {
+    position: absolute;
+    top: calc(100% + .4rem);
+    left: 0;
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: .3rem;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: .6rem;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+  }
+  .picker[hidden] { display: none; }
+  .picker button {
+    display: flex;
+    width: 100%;
+    min-width: 5.5rem;
+    gap: 1rem;
+    align-items: center;
+    justify-content: space-between;
+    padding: .1rem .7rem;
+    border: 0;
+    border-radius: .4rem;
+    background: transparent;
+    color: inherit;
+    font: 500 .8125rem var(--font);
+    cursor: pointer;
+  }
+  .picker button .fa { font-size: 1.6rem; line-height: 1.5; }
+  .picker button .n { color: var(--muted); }
+  .picker button:hover { background: var(--note-bg); }
+  .picker button[aria-selected="true"] { background: var(--lapis); color: var(--lapis-fg); }
+  .picker button[aria-selected="true"] .n { color: var(--lapis-soft); }
+  .keys { min-height: 1.5rem; margin: .25rem 0 0; color: var(--lapis-soft); font-size: .9375rem; }
+  .keys kbd { border-color: var(--lapis-soft); color: var(--lapis-fg); }
+  .samples { display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: baseline; margin-top: 1.25rem; font-size: .9375rem; color: var(--lapis-soft); }
+  .samples button {
+    padding: .2rem .7rem;
+    border: 0;
+    border-radius: 99px;
+    background: rgba(255, 255, 255, .12);
+    color: var(--lapis-fg);
+    font: 500 .9375rem var(--font);
+    cursor: pointer;
+  }
+  .samples button:hover { background: var(--saffron); color: #1a1300; }
+
+  .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
   .btn {
     display: inline-block;
-    margin: 1rem .5rem .5rem 0;
-    padding: .65rem 1.2rem;
-    border-radius: 8px;
-    background: var(--accent);
-    color: var(--accent-fg);
+    padding: .8rem 1.4rem;
+    border: 2px solid var(--fg);
+    border-radius: .7rem;
+    background: var(--fg);
+    color: var(--bg);
     font-weight: 600;
     text-decoration: none;
   }
-  .btn.alt { background: transparent; color: var(--accent); border: 1px solid var(--accent); }
-  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--line); }
-  th, td { padding: .5rem .75rem; text-align: left; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: 600; font-size: .875rem; }
-  tr:last-child td { border-bottom: 0; }
-  .fa { font-size: 1.35rem; direction: rtl; unicode-bidi: isolate; font-family: "Segoe UI", Tahoma, sans-serif; }
-  code { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: .05rem .35rem; font-size: .9em; }
-  .note {
-    background: var(--warn-bg);
-    border: 1px solid var(--warn-line);
-    border-radius: 8px;
-    padding: .75rem 1rem;
-    margin: 1rem 0;
+  .btn.alt { background: transparent; color: var(--fg); }
+  .btn.primary { border-color: var(--saffron); background: var(--saffron); color: #1a1300; }
+  .btn:hover { border-color: var(--turq); }
+  .btn.primary:hover { border-color: var(--fg); }
+  .note { margin: 1.5rem 0 0; padding: .9rem 1.1rem; max-width: 40rem; background: var(--note-bg); border-left: 4px solid var(--saffron); border-radius: 0 .5rem .5rem 0; color: var(--muted); font-size: .9688rem; }
+  .note strong { color: var(--fg); }
+
+  /* document sections */
+  section { display: grid; grid-template-columns: 12rem minmax(0, 1fr); gap: 1rem 2rem; padding: 3rem 0; border-top: 1px solid var(--line); }
+  h2::before { content: ""; display: block; width: 2.25rem; height: .3rem; margin-bottom: .75rem; border-radius: 2px; background: var(--saffron); }
+  h2 { margin: 0; font-size: 1.375rem; line-height: 1.25; letter-spacing: -.01em; font-variation-settings: "opsz" 36; }
+  .body > :first-child { margin-top: 0; }
+  .body p { max-width: 40rem; margin: 0 0 1rem; }
+
+  .pairs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1.5rem 0 0; padding: 0; list-style: none; }
+  .pair { display: flex; align-items: stretch; min-width: 0; border: 1px solid var(--line); border-radius: .8rem; overflow: hidden; background: var(--card); }
+  .pair .k {
+    display: grid;
+    place-items: center;
+    min-width: 4rem;
+    padding: .5rem .9rem;
+    border-bottom: .3rem solid var(--saffron);
+    background: var(--lapis);
+    color: var(--lapis-fg);
+    font-weight: 600;
+    font-size: 1.5rem;
   }
-  ul { padding-left: 1.25rem; }
-  footer { margin-top: 3rem; color: var(--muted); font-size: .875rem; }
+  .pair .fa { display: flex; flex: 1; gap: .9rem; align-items: center; justify-content: center; padding: .4rem 1rem; font-size: 2rem; line-height: 1.6; }
+  .pair .fa b {
+    font-weight: 500;
+    text-decoration: underline;
+    text-decoration-color: var(--saffron);
+    text-decoration-skip-ink: none;
+    text-decoration-thickness: .07em;
+    text-underline-offset: .2em;
+  }
+
+  .config { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 21rem); gap: 2rem; align-items: start; }
+  .config ul { max-width: 40rem; margin: 0 0 1rem; padding-left: 1.2rem; }
+  .config li { margin-bottom: .35rem; }
+  .config li::marker { color: var(--saffron); }
+  .shot { margin: 0; }
+  .shot img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: .4rem; box-shadow: .6rem .6rem 0 var(--saffron); }
+  .shot figcaption { margin-top: 1.1rem; color: var(--muted); font-size: .875rem; }
+
+  dl { margin: 0; }
+  dt { margin-top: 1.25rem; font-weight: 600; }
+  dt:first-child { margin-top: 0; }
+  dd { max-width: 40rem; margin: .15rem 0 0; color: var(--muted); }
+  kbd { padding: .05rem .4rem; border: 1px solid var(--line); border-bottom: 2px solid var(--saffron); border-radius: .35rem; font: 500 .875em var(--font); color: var(--fg); }
+
+  ol.steps { max-width: 40rem; margin: 0; padding-left: 1.4rem; }
+  ol.steps li { margin-bottom: .6rem; padding-left: .3rem; }
+  ol.steps li::marker { color: var(--turq); font-weight: 700; }
+  code { padding: .05rem .35rem; border-radius: .3rem; background: var(--note-bg); font: 500 .9em var(--font); }
+
+  footer { padding: 2rem 0 3.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .9375rem; }
+
+  @media (max-width: 44rem) {
+    header { padding-top: 2rem; }
+    section { grid-template-columns: 1fr; padding: 2.25rem 0; }
+    .config { grid-template-columns: 1fr; }
+    .shot { max-width: 21rem; }
+  }
+  @media (max-width: 36rem) {
+    .pairs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+    .pair .k { min-width: 3rem; padding: .4rem .6rem; font-size: 1.25rem; }
+    .pair .fa { gap: .5rem; padding: .3rem .5rem; font-size: 1.6rem; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .field { transition: border-color .15s; }
+    .picker button { transition: background .15s; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>Persian Phonetic IME</h1>
-  <p class="lead">Type Latin letters, get Persian script. A free, open-source input method for Windows.</p>
+<div class="wrap">
+  <header>
+    <p class="name">Persian Phonetic IME</p>
+    <h1>Type Persian on Windows with Latin letters.</h1>
+    <p class="lead">A free, open-source phonetic input method.</p>
+    <p>Inspired by the phonetic mode of the Google Japanese IME</p>
 
-  <a class="btn" href="https://github.com/EpicNicks/Persian-Phonetic-IME/releases">Download</a>
-  <a class="btn alt" href="https://github.com/EpicNicks/Persian-Phonetic-IME">Source on GitHub</a>
+    <div class="demo">
+      <label for="latin">Type a Persian word with Latin letters. Arrow keys move through it.</label>
+      <div class="stage">
+        <div class="field" id="field">
+          <div class="out fa" id="out" lang="fa" dir="rtl" aria-live="polite"></div>
+          <input class="ghost" id="latin" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" maxlength="80">
+          <div class="picker" id="picker" role="listbox" aria-label="Choose a letter" dir="rtl" hidden></div>
+        </div>
+        <p class="raw" id="raw" aria-hidden="true"></p>
+      </div>
+      <p class="keys" id="keys"></p>
+      <div class="samples">
+        <span>Try</span>
+        <button type="button" data-i="0">salām</button>
+        <button type="button" data-i="1">sobh bekheir</button>
+        <button type="button" data-i="2">kheili khub</button>
+      </div>
+    </div>
 
-  <div class="note">
-    <strong>Pre-release.</strong> The installer is unsigned, so Windows SmartScreen will warn you,
-    and the input method may be ignored in some modern Windows apps. It has had little testing on real
-    machines. Keep another keyboard layout available (Win+Space) in case you want to switch back.
-  </div>
+    <div class="actions">
+      <a class="btn primary" href="https://github.com/EpicNicks/Persian-Phonetic-IME/releases">Download for Windows</a>
+      <a class="btn alt" href="https://github.com/EpicNicks/Persian-Phonetic-IME">View the source</a>
+    </div>
+    <p class="note">
+      <strong>Pre-release.</strong> The installer is unsigned, so Windows SmartScreen will warn you,
+      and some modern Windows apps may ignore the input method. It has had little testing on real
+      machines. Keep another keyboard layout available (<kbd>Win</kbd>+<kbd>Space</kbd>) so you can switch back.
+      The demo above approximates the real behaviour.
+    </p>
+  </header>
 
-  <h2>How it works</h2>
-  <p>
-    The mapping is letter by letter, with no dictionary guessing. You spell the letters that appear in
-    the Persian word. Vowels are typed only when they appear in the Persian spelling, and every
-    <code>a</code> becomes ا.
-  </p>
-  <table>
-    <thead><tr><th>You type</th><th>You get</th></tr></thead>
-    <tbody>
-      <tr><td><code>slam</code></td><td class="fa">سلام</td></tr>
-      <tr><td><code>khub</code></td><td class="fa">خوب</td></tr>
-      <tr><td><code>shir</code></td><td class="fa">شیر</td></tr>
-    </tbody>
-  </table>
+  <section>
+    <h2>How letters map</h2>
+    <div class="body">
+      <p>
+        There is no dictionary deciding for you. You spell the letters that appear in the Persian word.
+        Vowels are typed only when they are written, and every <code>a</code> becomes ا.
+        So <code>khub</code> is خوب and <code>shir</code> is شیر.
+      </p>
+      <p>
+        Digraphs such as <code>sh</code>, <code>kh</code>, <code>ch</code>, <code>gh</code> and <code>zh</code> are
+        recognised as you type. To keep two letters apart, press <kbd>Enter</kbd> between them:
+        <code>s</code> <kbd>Enter</kbd> <code>h</code> gives <span class="fa">س ه</span>, not <span class="fa">ش</span>.
+      </p>
+    </div>
+  </section>
 
-  <h2>Features</h2>
-  <ul>
-    <li>The whole current word is shown underlined while you type. Space, Enter or punctuation commits it. Backspace edits the Latin letters, Escape cancels.</li>
-    <li>Ambiguous letters have a numbered candidate list. For example <code>s</code> can be س ص ث. Press Tab or Down, then <code>1</code>–<code>9</code>.</li>
-    <li>Persian digits and punctuation by default, and Shift+Space for the zero-width non-joiner (می‌خواهم).</li>
-    <li>Optional word suggestions from a bundled dictionary, with a profanity filter.</li>
-    <li>Configurable with an optional TOML file. A mistake in it never stops you typing.</li>
-  </ul>
+  <section>
+    <h2>When a key has more than one answer</h2>
+    <div class="body">
+      <p>
+        Persian has letters that sound alike. Those keys open a numbered list under the word. Press <kbd>Tab</kbd> or <kbd>↓</kbd> to move through it,
+        or <kbd>1</kbd> to <kbd>9</kbd> to pick. The underlined letter is the default if you keep typing.
+      </p>
+      <ul class="pairs">
+        <li class="pair"><span class="k">s</span><span class="fa"><b>س</b><span>ص</span><span>ث</span></span></li>
+        <li class="pair"><span class="k">z</span><span class="fa"><b>ز</b><span>ذ</span><span>ض</span><span>ظ</span></span></li>
+        <li class="pair"><span class="k">t</span><span class="fa"><b>ت</b><span>ط</span></span></li>
+        <li class="pair"><span class="k">h</span><span class="fa"><b>ه</b><span>ح</span></span></li>
+        <li class="pair"><span class="k">gh</span><span class="fa"><b>غ</b><span>ق</span></span></li>
+        <li class="pair"><span class="k">a/e</span><span class="fa"><b>ا</b><span>آ</span></span></li>
+      </ul>
+    </div>
+  </section>
 
-  <h2>Install</h2>
-  <ol>
-    <li>Download <code>PersianPhoneticIme-0.1.0-x64.msi</code> from the <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/releases">Releases page</a>. Check it against the attached <code>.sha256</code> file.</li>
-    <li>Run it. It needs 64-bit Windows 10 or later and asks for administrator approval.</li>
-    <li>Switch to it with Win+Space, or add it under Settings, Time &amp; language, Language.</li>
-  </ol>
+  <section>
+    <h2>Typing</h2>
+    <div class="body">
+      <dl>
+        <dt>The whole word is underlined while you type</dt>
+        <dd><kbd>Space</kbd>, <kbd>Enter</kbd> or punctuation commits it. <kbd>Backspace</kbd> edits the Latin letters and <kbd>Esc</kbd> cancels.</dd>
+        <dt>Persian digits and punctuation</dt>
+        <dd><span class="fa">۱۲۳</span> and <span class="fa">، ؛ ؟</span> by default. <kbd>Shift</kbd>+<kbd>Space</kbd> types the zero-width non-joiner, as in <span class="fa">می‌خواهم</span>.</dd>
+        <dt>Word suggestions, if you want them</dt>
+        <dd>An optional bundled dictionary suggests completions, with a profanity filter.</dd>
+        <dt>Your settings can't break typing</dt>
+        <dd>Change the mapping in a plain TOML file. A mistake in it is skipped, and you get a message with the line number and a fix.</dd>
+      </dl>
+    </div>
+  </section>
 
-  <h2>Privacy</h2>
-  <p>
-    No network access, no telemetry, and typed text is never logged or stored.
-    <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/blob/master/PRIVACY.md">Read the privacy policy.</a>
-  </p>
+  <section>
+    <h2>Configurable</h2>
+    <div class="body config">
+      <div>
+        <p>
+          The settings window saves each option as soon as you change it. Choose what you want from:
+        </p>
+        <ul>
+          <li>whether <code>gh</code> types غ or ق, and what a lone <code>c</code> does</li>
+          <li>Persian or Western digits and punctuation</li>
+          <li>what <kbd>Enter</kbd> and <kbd>Space</kbd> do, and where the list opens</li>
+          <li>optional word suggestions, with learning and typo correction you can turn off</li>
+        </ul>
+        <p>
+          Prefer a file? Edit the plain TOML file at <code>%APPDATA%\PersianPhoneticIme\config.toml</code>
+          to remap any key. A mistake in it is skipped with a message that names the line and suggests a fix,
+          so it never stops you typing.
+        </p>
+      </div>
+      <figure class="shot">
+        <img src="img/settings.png" width="656" height="1100" loading="lazy"
+             alt="The settings window: a settings file path, buttons to open the config file, reset to defaults and check again, then drop-down options for gh, q, c, digits, punctuation, Enter and Space, and checkboxes for word completion.">
+        <figcaption>The settings window.</figcaption>
+      </figure>
+    </div>
+  </section>
 
-  <h2>Licence</h2>
-  <p>
-    GNU General Public License v3.0. The bundled word-frequency dictionary is derived from
-    <a href="https://github.com/rspeer/wordfreq">wordfreq</a> data and is licensed CC BY-SA 4.0.
-    Report problems on the <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/issues">issue tracker</a>.
-  </p>
+  <section>
+    <h2>Install</h2>
+    <div class="body">
+      <ol class="steps">
+        <li>Download <code>PersianPhoneticIme-0.1.0-x64.msi</code> from the <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/releases">Releases page</a>. Check it against the attached <code>.sha256</code> file.</li>
+        <li>Run it. It needs 64-bit Windows 10 or later and asks for administrator approval.</li>
+        <li>Switch to it with <kbd>Win</kbd>+<kbd>Space</kbd>, or add it under Settings, Time &amp; language, Language.</li>
+      </ol>
+    </div>
+  </section>
 
-  <footer>Persian Phonetic IME is not affiliated with Microsoft.</footer>
-</main>
+  <section>
+    <h2>Privacy</h2>
+    <div class="body">
+      <p>
+        The input method has no network access and no telemetry. What you type is never logged or stored.
+        This page loads nothing from other sites.
+        <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/blob/master/PRIVACY.md">Read the privacy policy.</a>
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <p>
+      Licensed under the GNU General Public License v3.0. The bundled word-frequency dictionary is derived from
+      <a href="https://github.com/rspeer/wordfreq">wordfreq</a> data and is licensed CC BY-SA 4.0.
+      Report problems on the <a href="https://github.com/EpicNicks/Persian-Phonetic-IME/issues">issue tracker</a>.
+      Persian Phonetic IME is not affiliated with Microsoft or Google.
+    </p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  // Mirrors data/presets/qamooscheh.toml (index 0 is the default, the rest are alternates).
+  var DIGRAPHS = { kh: ["خ"], gh: ["غ", "ق"], ch: ["چ"], sh: ["ش"], zh: ["ژ"] };
+  var SINGLES = {
+    a: ["ا", "آ"], e: ["ا", "آ"], i: ["ی"], o: ["و"], u: ["و"], b: ["ب"], p: ["پ"],
+    t: ["ت", "ط"], s: ["س", "ص", "ث"], j: ["ج"], h: ["ه", "ح"], d: ["د"],
+    z: ["ز", "ذ", "ض", "ظ"], r: ["ر"], f: ["ف"], k: ["ک"], g: ["گ"], l: ["ل"],
+    m: ["م"], n: ["ن"], v: ["و"], w: ["و"], x: ["خ"], y: ["ی"], q: ["ق", "غ"],
+    "'": ["ع", "ء"]
+  };
+  var PUNCT = { ",": "،", ";": "؛", "?": "؟" };
+  var DIGITS = "۰۱۲۳۴۵۶۷۸۹";
+  var DELIM = /[\s.,;?!]/;
+
+  // What each example types, and which letters it picks from the list (token offset -> index).
+  var SAMPLES = [
+    { text: "slam", picks: {} },
+    { text: "sbh bkhir", picks: { 0: 1, 2: 1 } },
+    { text: "khili khub", picks: {} }
+  ];
+
+  var input = document.getElementById("latin");
+  var out = document.getElementById("out");
+  var raw = document.getElementById("raw");
+  var field = document.getElementById("field");
+  var picker = document.getElementById("picker");
+  var keysEl = document.getElementById("keys");
+  var picks = {};   // token offset -> { latin, cands, ch, prefix }: a letter chosen from the list
+  var bounds = [];  // [{ pos, prefix }]: Enter or a pick ended the word at pos
+  var dismissed = false;
+  var open = null;  // the token the picker is open on, or null
+  var tokens = [];
+  var lastCaret = -1;
+
+  // Both picks and bounds only hold while the Latin text before them is unchanged, so
+  // backspacing over a letter and retyping it starts again from the default.
+  function valid(prefix) { return input.value.slice(0, prefix.length) === prefix; }
+  function pruneState() {
+    Object.keys(picks).forEach(function (k) { if (!valid(picks[k].prefix)) delete picks[k]; });
+    bounds = bounds.filter(function (b) { return valid(b.prefix); });
+  }
+  function isBound(pos) { return bounds.some(function (b) { return b.pos === pos; }); }
+  function caretAt() { return Math.min(input.selectionEnd == null ? input.value.length : input.selectionEnd, input.value.length); }
+  function setCaret(n) { input.setSelectionRange(n, n); }
+  function commit() {
+    var pos = caretAt();
+    if (pos > 0 && !isBound(pos)) bounds.push({ pos: pos, prefix: input.value.slice(0, pos) });
+  }
+
+  function tokenize(text) {
+    var list = [], i = 0, lower = text.toLowerCase();
+    while (i < text.length) {
+      var two = lower.substr(i, 2), c = lower[i], t, p = picks[i];
+      // A letter chosen from the list stays on its own: typing on never merges it into a digraph.
+      if (p && valid(p.prefix) && lower.substr(i, p.latin.length) === p.latin) t = { latin: p.latin, cands: p.cands };
+      else if (DIGRAPHS[two] && !isBound(i + 1)) t = { latin: two, cands: DIGRAPHS[two] };
+      else if (SINGLES[c]) t = { latin: c, cands: SINGLES[c] };
+      else if (c >= "0" && c <= "9") t = { latin: c, cands: [DIGITS[+c]] };
+      else if (PUNCT[c]) t = { latin: c, cands: [PUNCT[c]] };
+      else t = { latin: c, cands: [text[i]] };
+      t.pos = i;
+      t.end = i + t.latin.length;
+      t.ch = p && p.latin === t.latin ? p.ch : t.cands[0];
+      list.push(t);
+      i = t.end;
+    }
+    return list;
+  }
+
+  function esc(s) { return s.replace(/[&<>]/g, function (m) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[m]; }); }
+
+  function choose(tok, index) {
+    if (index === 0) delete picks[tok.pos];
+    else picks[tok.pos] = { latin: tok.latin, cands: tok.cands, ch: tok.cands[index], prefix: input.value.slice(0, tok.end) };
+  }
+
+  function render() {
+    var text = input.value, caret = caretAt();
+    lastCaret = caret;
+    tokens = tokenize(text);
+
+    // The word under the caret is what is being composed: from the last delimiter or Enter
+    // before the caret to the next delimiter or Enter after it.
+    var start = 0, end = text.length;
+    tokens.forEach(function (t) {
+      if (DELIM.test(t.latin)) {
+        if (t.end <= caret) start = Math.max(start, t.end);
+        else if (t.pos >= caret) end = Math.min(end, t.pos);
+      }
+    });
+    bounds.forEach(function (b) {
+      if (b.pos <= caret) start = Math.max(start, b.pos);
+      else end = Math.min(end, b.pos);
+    });
+
+    var html = "", inPre = false;
+    function caretHtml() { return '<span class="caret"></span>'; }
+    tokens.forEach(function (t) {
+      var inside = t.pos >= start && t.end <= end && !DELIM.test(t.latin);
+      if (inside && !inPre) { html += '<span class="pre">'; inPre = true; }
+      if (!inside && inPre) { html += "</span>"; inPre = false; }
+      if (t.pos === caret) html += caretHtml();
+      html += '<span data-p="' + t.pos + '" data-e="' + t.end + '">' + esc(t.ch) + "</span>";
+    });
+    if (inPre) html += "</span>";
+    if (caret === text.length) html += caretHtml();
+    out.innerHTML = html;
+    raw.innerHTML = text ? esc(text.slice(0, caret)) + '<span class="rc"></span>' + esc(text.slice(caret)) : "";
+
+    var last = tokens.filter(function (t) { return t.end === caret && t.pos >= start && !DELIM.test(t.latin); })[0];
+    open = last && last.cands.length > 1 && !dismissed ? last : null;
+    picker.innerHTML = "";
+    picker.hidden = !open;
+    if (open) {
+      var tok = open, active = tok.cands.indexOf(tok.ch);
+      tok.cands.forEach(function (ch, n) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.tabIndex = -1;
+        b.setAttribute("role", "option");
+        b.setAttribute("aria-selected", String(n === active));
+        b.innerHTML = '<span class="fa" lang="fa">' + esc(ch) + '</span><span class="n">' + (n + 1) + "</span>";
+        b.addEventListener("mousedown", function (e) { e.preventDefault(); });
+        b.addEventListener("click", function () {
+          choose(tok, n);
+          commit();
+          render();
+          input.focus({ preventScroll: true });
+        });
+        picker.appendChild(b);
+      });
+      var span = out.querySelector('[data-e="' + tok.end + '"]'), base = field.getBoundingClientRect();
+      var r = span.getBoundingClientRect();
+      picker.style.left = Math.max(0, Math.min(r.left - base.left, base.width - picker.offsetWidth)) + "px";
+      keysEl.innerHTML = "<kbd>Tab</kbd> or <kbd>↓</kbd> to move, <kbd>1</kbd>–<kbd>" + tok.cands.length +
+        "</kbd> or <kbd>Enter</kbd> to pick.";
+    } else {
+      keysEl.innerHTML = "<kbd>Enter</kbd> ends a word early: <kbd>s</kbd> <kbd>Enter</kbd> <kbd>h</kbd> types <span class=\"fa\">س ه</span>, not <span class=\"fa\">ش</span>.";
+    }
+  }
+
+  function move(delta, wrap) {
+    var n = open.cands.length, i = open.cands.indexOf(open.ch) + delta;
+    choose(open, wrap ? (i + n) % n : Math.max(0, Math.min(n - 1, i)));
+    render();
+  }
+
+  // The text runs right to left, so the left arrow moves on through the word and the right arrow back.
+  function step(forward) {
+    var caret = caretAt(), stops = [0].concat(tokens.map(function (t) { return t.end; })), to = caret;
+    if (forward) { for (var i = 0; i < stops.length; i++) if (stops[i] > caret) { to = stops[i]; break; } }
+    else { for (var j = stops.length - 1; j >= 0; j--) if (stops[j] < caret) { to = stops[j]; break; } }
+    setCaret(to);
+    dismissed = false;
+    render();
+  }
+
+  var timer = null;
+  function stopAuto() { if (timer) { clearTimeout(timer); timer = null; } }
+  function reset(value) {
+    picks = {};
+    bounds = [];
+    dismissed = false;
+    input.value = value;
+    setCaret(value.length);
+  }
+  function typeIn(sample) {
+    stopAuto();
+    reset("");
+    var n = 0;
+    (function tick() {
+      input.value = sample.text.slice(0, ++n);
+      setCaret(n);
+      render();
+      var pick = sample.picks[n - 1], more = n < sample.text.length;
+      if (pick !== undefined && open) {
+        timer = setTimeout(function () { choose(open, pick); render(); timer = more ? setTimeout(tick, 400) : null; }, 550);
+      } else if (more) timer = setTimeout(tick, 260);
+      else timer = null;
+    })();
+  }
+
+  input.addEventListener("keydown", function (e) {
+    stopAuto();
+    var k = e.key;
+    if (e.ctrlKey || e.altKey || e.metaKey || e.shiftKey && k !== "Tab") return;
+    if (k === "ArrowLeft" || k === "ArrowRight") { e.preventDefault(); step(k === "ArrowLeft"); return; }
+    if (k === "Enter") { e.preventDefault(); commit(); render(); return; }
+    if (!open) return;
+    if (k === "ArrowDown") move(1, false);
+    else if (k === "ArrowUp") move(-1, false);
+    else if (k === "Tab") move(e.shiftKey ? -1 : 1, true);
+    else if (k === "Escape") { commit(); render(); }
+    else if (/^[1-9]$/.test(k) && +k <= open.cands.length) { choose(open, +k - 1); commit(); render(); }
+    else return;
+    e.preventDefault();
+  });
+  input.addEventListener("input", function () {
+    stopAuto();
+    dismissed = false;
+    pruneState();
+    render();
+  });
+  // Home, End, Ctrl+arrows and the like move the caret natively.
+  input.addEventListener("keyup", function () { if (caretAt() !== lastCaret) { dismissed = false; render(); } });
+  input.addEventListener("select", function () { setCaret(caretAt()); });
+  input.addEventListener("blur", function () { dismissed = true; render(); });
+  input.addEventListener("focus", function () { if (dismissed) { dismissed = false; render(); } });
+
+  // Clicking a letter puts the caret on the side of it that you clicked; clicking blank space goes to the end.
+  field.addEventListener("click", function (e) {
+    if (picker.contains(e.target)) return;
+    var span = e.target.closest ? e.target.closest("[data-e]") : null, to = input.value.length;
+    if (span) {
+      var r = span.getBoundingClientRect();
+      to = +span.getAttribute(e.clientX < r.left + r.width / 2 ? "data-e" : "data-p");
+    }
+    stopAuto();
+    input.focus({ preventScroll: true });
+    setCaret(to);
+    dismissed = false;
+    render();
+  });
+
+  document.querySelectorAll(".samples button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var sample = SAMPLES[+b.getAttribute("data-i")];
+      if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+        stopAuto();
+        reset(sample.text);
+        render();
+        Object.keys(sample.picks).forEach(function (pos) {
+          choose(tokens.filter(function (t) { return t.pos === +pos; })[0], sample.picks[pos]);
+        });
+        render();
+      } else typeIn(sample);
+      input.focus({ preventScroll: true });
+    });
+  });
+
+  render();
+  // One entrance: type the first example once, unless the visitor gets there first.
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    timer = setTimeout(function () { if (!input.value) typeIn(SAMPLES[0]); }, 700);
+  }
+})();
+</script>
+
 </body>
 </html>
