@@ -17,7 +17,7 @@ use pime_dict::Runtime;
 use pime_settings::backup::{ensure_exists, reset_config, Timestamp};
 use pime_settings::dictionary::{preview_completer, start_preview_runtime};
 use pime_settings::edit::save_setting;
-use pime_settings::glass::{palette, Blob, Canvas, Glass, Rect, Rgb, Theme};
+use pime_settings::glass::{palette, Canvas, Glass, Rect, Rgb, Theme};
 use pime_settings::learned::{
     clear_history, count_text, learned_count, CHECK_ROWS, NUMBER_ROWS, PRIVACY_LINE, SECTION,
 };
@@ -172,7 +172,7 @@ impl Health {
 
     fn color(self) -> Rgb {
         match self {
-            Health::Ok => palette::OK,
+            Health::Ok => palette::TURQUOISE,
             Health::Defaults => palette::SAFFRON,
             _ => palette::PROBLEM,
         }
@@ -821,9 +821,9 @@ fn set_window_icons(hwnd: HWND) {
 /// A recessed groove (tab track, switch that is off) in the theme's colours.
 fn groove(p: &mut Painter, t: &Theme, r: Rect, radius: f32, depth: f32) {
     if t.dark {
-        p.canvas.inset(r, radius, depth * 3.5, 0x000000, 0.1);
+        p.canvas.inset(r, radius, depth * 3.5, 0x000000);
     } else {
-        p.canvas.inset(r, radius, depth, t.line, 0.7);
+        p.canvas.inset(r, radius, depth, t.line);
     }
 }
 
@@ -1011,37 +1011,17 @@ fn free_scene(s: Scene) {
     }
 }
 
-fn blobs(w: f32, h: f32, light: f32) -> [Blob; 4] {
-    let blob = |cx, cy, radius, color, alpha| Blob {
-        cx,
-        cy,
-        radius,
-        color,
-        alpha: alpha * light,
-    };
-    [
-        blob(w * 0.94, h * 0.02, w * 0.62, 0xFFB52E, 0.3),
-        blob(w * 0.08, h * 0.0, w * 0.34, 0xFFD27A, 0.16),
-        blob(w * 0.02, h * 0.58, w * 0.5, 0x7FD1C7, 0.2),
-        blob(w * 0.78, h * 1.0, w * 0.5, 0xFF9C7A, 0.16),
-    ]
-}
-
 /// Builds the window's shapes and static text for the current state.
 fn build_scene(app: &App, d: &Dyn) -> Painter {
     let t = d.theme;
     let (w, h) = app.size;
     let mut p = Painter::new(w as usize, h as usize, app.scale, t.base);
-    p.canvas
-        .backdrop(t.base, &blobs(w as f32, h as f32, t.light));
     let eo = app.errors_only;
     let ink = t.ink;
     let soft = t.ink_soft;
 
-    // Header: the saffron drop and the title.
+    // Header: the logo and the title.
     let logo = p.r(M, 18, 44, 44);
-    p.canvas
-        .shadow(logo, logo.w * 0.25, 10.0, 4.0, palette::SAFFRON_DEEP, 0.25);
     p.canvas.blit_rgba(LOGO, LOGO_PX, LOGO_PX, logo);
     let r = p.r(M + 58, 16, 420, 30);
     p.text(r, "Persian Phonetic IME", F_TITLE, ink, LEFT);
@@ -1056,7 +1036,8 @@ fn build_scene(app: &App, d: &Dyn) -> Painter {
     if !eo {
         // The lens: live preview, always visible.
         let hero = p.r(M, HERO_Y, CARD_W, HERO_H);
-        p.canvas.glass(hero, p.px(24.0), t.glass(Glass::PANEL));
+        p.canvas
+            .glass(hero, p.px(24.0), t.glass(Glass::PANEL), t.line);
         let r = p.r(LABEL_X, HERO_Y + 12, 200, 22);
         p.text(r, "Try typing", F_BOLD, ink, LEFT);
         let r = p.r(LABEL_X + 120, HERO_Y + 12, CARD_W - 44 - 120, 22);
@@ -1078,7 +1059,7 @@ fn build_scene(app: &App, d: &Dyn) -> Painter {
         }
         let lens = p.r(LABEL_X + 312, HERO_Y + 40, CARD_W - 44 - 312, 44);
         p.canvas.fill(lens, radius, t.field_lens, 1.0);
-        p.canvas.stroke(lens, radius, 1.2, palette::SAFFRON, 0.55);
+        p.canvas.stroke(lens, radius, 1.2, t.accent2, 0.7);
         let r = p.r(LABEL_X, HERO_Y + 92, CARD_W - 44, 36);
         p.text(r, &d.alts, F_SMALL, soft, WRAP);
 
@@ -1093,7 +1074,8 @@ fn build_scene(app: &App, d: &Dyn) -> Painter {
     let rows_here = d_rows(app, d.page);
     let card_h = card_height(d.page, rows_here);
     let card = p.r(M, top, CARD_W, card_h);
-    p.canvas.glass(card, p.px(24.0), t.glass(Glass::PANEL));
+    p.canvas
+        .glass(card, p.px(24.0), t.glass(Glass::PANEL), t.line);
     let rule = |p: &mut Painter, y: i32| {
         let line = p.rf(LABEL_X as f32, y as f32, (RIGHT_X - LABEL_X) as f32, 1.0);
         p.canvas.fill(line, 0.0, t.line, t.line_alpha(0.07));
@@ -1244,7 +1226,7 @@ fn paint_control(app: &App, d: &Dyn, id: i32, p: &mut Painter, look: Look) {
     let check = id - ID_CHECK_BASE;
     if id == ID_PILL {
         let radius = h / 2.0;
-        p.canvas.glass(all, radius, glass_for(&t, look));
+        p.canvas.glass(all, radius, glass_for(&t, look), t.line);
         let dot = Rect::new(16.0 * s, (h - 9.0 * s) / 2.0, 9.0 * s, 9.0 * s);
         p.canvas.fill(dot, dot.w / 2.0, d.health.color(), 1.0);
         p.text(
@@ -1260,9 +1242,9 @@ fn paint_control(app: &App, d: &Dyn, id: i32, p: &mut Painter, look: Look) {
         let radius = h / 2.0;
         let on = d.page == page;
         if on {
-            p.canvas.glass(all, radius, t.glass(Glass::RAISED));
+            p.canvas.glass(all, radius, t.glass(Glass::RAISED), t.line);
         } else if look.hover || look.down {
-            p.canvas.glass(all, radius, t.glass(Glass::FAINT));
+            p.canvas.glass(all, radius, t.glass(Glass::FAINT), t.line);
         }
         let (font, color) = if on {
             (F_BOLD, t.accent_text)
@@ -1275,7 +1257,7 @@ fn paint_control(app: &App, d: &Dyn, id: i32, p: &mut Painter, look: Look) {
         ring(p, all, radius);
     } else if id == ID_OPEN {
         let radius = h / 2.0;
-        p.canvas.saffron(all, radius, false);
+        p.canvas.saffron(all, radius);
         if look.down {
             p.canvas.fill(all, radius, palette::SAFFRON_DEEP, 0.16);
         } else if look.hover {
@@ -1285,14 +1267,17 @@ fn paint_control(app: &App, d: &Dyn, id: i32, p: &mut Painter, look: Look) {
         ring(p, all, radius);
     } else if id == ID_RESET || id == ID_CHECK || id == ID_CLEAR {
         let radius = h / 2.0;
-        p.canvas.glass(all, radius, glass_for(&t, look));
+        p.canvas.glass(all, radius, glass_for(&t, look), t.line);
         if look.down {
             p.canvas.fill(all, radius, t.line, t.line_alpha(0.07));
         }
         let (label, color) = match id {
             ID_RESET => ("Reset to defaults", t.ink),
             ID_CHECK => ("Check again", t.ink),
-            _ => ("Clear learned words", palette::DANGER),
+            _ => (
+                "Clear learned words",
+                if t.dark { 0xFF8F75 } else { palette::DANGER },
+            ),
         };
         p.text(all, label, F_BODY, color, CENTRE);
         ring(p, all, radius);
@@ -1308,7 +1293,7 @@ fn paint_control(app: &App, d: &Dyn, id: i32, p: &mut Painter, look: Look) {
             paint_switch_row(p, &t, s, look, FORM_OPTIONS[i].label, d.option_on[i]);
         } else {
             let radius = 11.0 * s;
-            p.canvas.glass(all, radius, glass_for(&t, look));
+            p.canvas.glass(all, radius, glass_for(&t, look), t.line);
             if look.down {
                 p.canvas.fill(all, radius, t.line, t.line_alpha(0.06));
             }
@@ -1336,7 +1321,7 @@ fn paint_switch_row(p: &mut Painter, t: &Theme, s: f32, look: Look, label: &str,
     let (w, h) = (p.canvas.w as f32, p.canvas.h as f32);
     let all = Rect::new(0.0, 0.0, w, h);
     if look.hover || look.down {
-        p.canvas.glass(all, 14.0 * s, t.glass(Glass::FAINT));
+        p.canvas.glass(all, 14.0 * s, t.glass(Glass::FAINT), t.line);
     }
     p.text(
         Rect::new(12.0 * s, 0.0, w - 80.0 * s, h),
@@ -1353,7 +1338,7 @@ fn paint_switch_row(p: &mut Painter, t: &Theme, s: f32, look: Look, label: &str,
     );
     let radius = track.h / 2.0;
     if on {
-        p.canvas.saffron(track, radius, false);
+        p.canvas.fill(track, radius, t.accent2, 1.0);
     } else {
         groove(p, t, track, radius, 0.16);
     }
@@ -1364,8 +1349,6 @@ fn paint_switch_row(p: &mut Painter, t: &Theme, s: f32, look: Look, label: &str,
         track.x + 3.0 * s
     };
     let knob = Rect::new(kx, track.y + 3.0 * s, size, size);
-    p.canvas
-        .shadow(knob, size / 2.0, 4.0 * s, 1.5 * s, t.shadow, 0.4);
     p.canvas.fill(knob, size / 2.0, 0xFFFFFF, 1.0);
     p.canvas
         .stroke(knob, size / 2.0, 1.0, t.line, t.line_alpha(0.1));
@@ -1914,14 +1897,13 @@ fn render_preview(dark: bool, fonts: &[HFONT]) -> Option<Canvas> {
     let (w, h) = (PREVIEW_W, PREVIEW_H);
     let mut p = Painter::new(w, h, 1.0, t.base);
     p.canvas
-        .backdrop(t.base, &blobs(w as f32, h as f32, t.light));
-    p.canvas
         .blit_rgba(LOGO, LOGO_PX, LOGO_PX, Rect::new(16.0, 10.0, 32.0, 32.0));
     let title = Rect::new(58.0, 10.0, 290.0, 34.0);
     p.text(title, "Persian Phonetic IME", F_TITLE, t.ink, LEFT);
 
     let lens_card = Rect::new(16.0, 54.0, 328.0, 66.0);
-    p.canvas.glass(lens_card, 18.0, t.glass(Glass::PANEL));
+    p.canvas
+        .glass(lens_card, 18.0, t.glass(Glass::PANEL), t.line);
     p.text(
         Rect::new(32.0, 60.0, 200.0, 20.0),
         "Try typing",
@@ -1941,7 +1923,7 @@ fn render_preview(dark: bool, fonts: &[HFONT]) -> Option<Canvas> {
     );
     let lens = Rect::new(182.0, 84.0, 146.0, 28.0);
     p.canvas.fill(lens, 10.0, t.field_lens, 1.0);
-    p.canvas.stroke(lens, 10.0, 1.2, palette::SAFFRON, 0.55);
+    p.canvas.stroke(lens, 10.0, 1.2, t.accent2, 0.7);
     let rtl = DRAW_TEXT_FORMAT(RIGHT.0 | 0x0002_0000);
     let out = Rect::new(188.0, 82.0, 134.0, 30.0);
     p.text(
@@ -1953,7 +1935,7 @@ fn render_preview(dark: bool, fonts: &[HFONT]) -> Option<Canvas> {
     );
 
     let card = Rect::new(16.0, 130.0, 328.0, 72.0);
-    p.canvas.glass(card, 18.0, t.glass(Glass::PANEL));
+    p.canvas.glass(card, 18.0, t.glass(Glass::PANEL), t.line);
     p.text(
         Rect::new(32.0, 136.0, 110.0, 30.0),
         "Digits",
@@ -1962,7 +1944,7 @@ fn render_preview(dark: bool, fonts: &[HFONT]) -> Option<Canvas> {
         LEFT,
     );
     let field = Rect::new(150.0, 139.0, 178.0, 24.0);
-    p.canvas.glass(field, 9.0, t.glass(Glass::CONTROL));
+    p.canvas.glass(field, 9.0, t.glass(Glass::CONTROL), t.line);
     let digits = "Persian \u{06F0}\u{06F1}\u{06F2}\u{06F3}";
     p.text(
         Rect::new(162.0, 139.0, 140.0, 24.0),
@@ -1978,9 +1960,8 @@ fn render_preview(dark: bool, fonts: &[HFONT]) -> Option<Canvas> {
     let label = Rect::new(32.0, 168.0, 220.0, 28.0);
     p.text(label, "Suggest word completions", F_BODY, t.ink, LEFT);
     p.canvas
-        .saffron(Rect::new(284.0, 170.0, 44.0, 24.0), 12.0, false);
+        .fill(Rect::new(284.0, 170.0, 44.0, 24.0), 12.0, t.accent2, 1.0);
     let knob = Rect::new(305.0, 173.0, 18.0, 18.0);
-    p.canvas.shadow(knob, 9.0, 4.0, 1.5, t.shadow, 0.4);
     p.canvas.fill(knob, 9.0, 0xFFFFFF, 1.0);
 
     // SAFETY: plain GDI calls; the bitmap is freed after the pixels were copied out.

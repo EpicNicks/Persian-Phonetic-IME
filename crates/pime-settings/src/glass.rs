@@ -1,47 +1,44 @@
-//! Software painter for the settings window's frosted-glass look.
+//! Software painter for the settings window: flat colour, translucent panels.
 //!
 //! A [`Canvas`] is an opaque 0x00RRGGBB pixel buffer. Shapes are rounded rectangles
-//! evaluated as signed distance fields, which gives anti-aliased edges, soft shadows
-//! and rim light without any graphics API. The window code (`ui.rs`) paints text on
-//! top with GDI and blits the result. No Windows types here, so it is unit-tested.
+//! evaluated as signed distance fields, which gives anti-aliased edges without any
+//! graphics API. There are no gradients and no shadows: a surface is a solid colour at
+//! some alpha, with a hairline edge. No Windows types here, so it is unit-tested.
 
 /// 0xRRGGBB.
 pub type Rgb = u32;
 
-/// Colours of the window. Saffron is the only accent; the turquoise and apricot are
-/// the light behind the glass, not UI colours.
+/// Colours shared by both looks. Saffron marks action (the logo, the main button, focus);
+/// Persian turquoise marks state (switches that are on, the selected tab, the result).
 pub mod palette {
     use super::Rgb;
     pub const SAFFRON: Rgb = 0xF4A300;
-    pub const SAFFRON_LIGHT: Rgb = 0xFFC85A;
     pub const SAFFRON_DEEP: Rgb = 0x9A5B00;
-    pub const SAFFRON_TEXT_DARK: Rgb = 0xFFC85A;
     /// Text on a saffron fill (white would fail contrast).
     pub const ON_SAFFRON: Rgb = 0x3A2500;
-    pub const OK: Rgb = 0x2E9C74;
+    pub const TURQUOISE: Rgb = 0x19AFA0;
     pub const PROBLEM: Rgb = 0xD9482B;
     pub const DANGER: Rgb = 0xA33A1E;
-    pub const WARM_RIM: Rgb = 0xE8B060;
 }
 
-/// Colours and glass strength for one look of the window.
+/// Colours and panel strength for one look of the window.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Theme {
     pub dark: bool,
-    /// Glass solidity, 0.2-1.0.
+    /// Panel solidity, 0.2-1.0.
     pub opacity: f32,
     pub base: Rgb,
     pub ink: Rgb,
     pub ink_soft: Rgb,
     pub field: Rgb,
+    /// Fill of the output field.
     pub field_lens: Rgb,
-    /// Saffron used for text (deep on light glass, bright on dark).
+    /// Persian turquoise as a fill.
+    pub accent2: Rgb,
+    /// Persian turquoise as text on this look's surfaces.
     pub accent_text: Rgb,
-    /// Colour of hairlines, field outlines and grooves.
+    /// Colour of hairlines and grooves.
     pub line: Rgb,
-    pub shadow: Rgb,
-    /// How strongly the backdrop's coloured lights show.
-    pub light: f32,
 }
 
 impl Theme {
@@ -52,64 +49,54 @@ impl Theme {
             Theme {
                 dark,
                 opacity,
-                base: 0x15110C,
+                base: 0x14110D,
                 ink: 0xF6EDDF,
                 ink_soft: 0xBFAE95,
                 field: 0x2A2319,
-                field_lens: 0x3D2E12,
-                accent_text: palette::SAFFRON_TEXT_DARK,
+                field_lens: 0x12332F,
+                accent2: 0x3CC9BB,
+                accent_text: 0x5FD8CB,
                 line: 0xFFFFFF,
-                shadow: 0x000000,
-                light: 0.42,
             }
         } else {
             Theme {
                 dark,
                 opacity,
-                base: 0xFBF6EA,
+                base: 0xF7F2E7,
                 ink: 0x2B2118,
                 ink_soft: 0x6B5B49,
                 field: 0xFFFDF8,
-                field_lens: 0xFFF3D6,
-                accent_text: palette::SAFFRON_DEEP,
+                field_lens: 0xE4F5F2,
+                accent2: 0x19AFA0,
+                accent_text: 0x0B6F67,
                 line: 0x2B2118,
-                shadow: 0x6B4A1A,
-                light: 1.0,
             }
         }
     }
 
-    /// Strength of hairlines relative to the light theme (white lines need less).
+    /// Strength of hairlines relative to the light look (white lines need more).
     pub fn line_alpha(&self, a: f32) -> f32 {
         if self.dark {
-            a * 1.3
+            a * 1.4
         } else {
             a
         }
     }
 
-    /// A glass preset scaled for this theme and opacity.
+    /// A surface preset for this look and opacity.
     pub fn glass(&self, g: Glass) -> Glass {
         let o = self.opacity;
         if self.dark {
             Glass {
-                top: g.top * 0.2 * o,
-                bottom: g.bottom * 0.2 * o,
-                edge: g.edge * 0.9 * o,
-                rim_top: g.rim_top * 0.5 * (0.5 + 0.5 * o),
-                rim_bottom: g.rim_bottom * 0.45 * (0.5 + 0.5 * o),
-                shadow: if g.shadow > 0.0 { 0.45 } else { 0.0 },
-                shadow_color: self.shadow,
+                fill: g.fill * 0.16 * o,
+                border: g.border * 0.45,
+                tint: 0xFFFFFF,
             }
         } else {
             Glass {
-                top: g.top * o,
-                bottom: g.bottom * o,
-                edge: g.edge * o,
-                rim_top: g.rim_top * (0.5 + 0.5 * o),
-                rim_bottom: g.rim_bottom * (0.5 + 0.5 * o),
-                shadow: g.shadow * o,
-                shadow_color: self.shadow,
+                fill: g.fill * o,
+                border: g.border * (0.5 + 0.5 * o),
+                tint: 0xFFFFFF,
             }
         }
     }
@@ -133,74 +120,39 @@ impl Rect {
     }
 }
 
-/// A soft circle of light in the backdrop.
-#[derive(Debug, Clone, Copy)]
-pub struct Blob {
-    pub cx: f32,
-    pub cy: f32,
-    pub radius: f32,
-    pub color: Rgb,
-    pub alpha: f32,
-}
-
-/// How a glass surface is lit. Alphas are for white light.
-#[derive(Debug, Clone, Copy)]
+/// A flat translucent surface: `fill` alpha of `tint`, with a hairline of `border` alpha.
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Glass {
-    pub top: f32,
-    pub bottom: f32,
-    /// Extra brightness in the 7px band along the inside of the edge (glass thickness).
-    pub edge: f32,
-    pub rim_top: f32,
-    pub rim_bottom: f32,
-    pub shadow: f32,
-    pub shadow_color: Rgb,
+    pub fill: f32,
+    pub border: f32,
+    pub tint: Rgb,
 }
 
 impl Glass {
     pub const PANEL: Glass = Glass {
-        top: 0.34,
-        bottom: 0.27,
-        edge: 0.04,
-        rim_top: 0.7,
-        rim_bottom: 0.35,
-        shadow: 0.07,
-        shadow_color: 0x6B4A1A,
+        fill: 0.6,
+        border: 0.85,
+        tint: 0xFFFFFF,
     };
     pub const RAISED: Glass = Glass {
-        top: 0.9,
-        bottom: 0.82,
-        edge: 0.03,
-        rim_top: 0.9,
-        rim_bottom: 0.5,
-        shadow: 0.0,
-        shadow_color: 0x6B4A1A,
+        fill: 0.94,
+        border: 0.9,
+        tint: 0xFFFFFF,
     };
     pub const CONTROL: Glass = Glass {
-        top: 0.5,
-        bottom: 0.42,
-        edge: 0.03,
-        rim_top: 0.75,
-        rim_bottom: 0.4,
-        shadow: 0.0,
-        shadow_color: 0x6B4A1A,
+        fill: 0.62,
+        border: 0.8,
+        tint: 0xFFFFFF,
     };
     pub const HOVER: Glass = Glass {
-        top: 0.7,
-        bottom: 0.6,
-        edge: 0.03,
-        rim_top: 0.9,
-        rim_bottom: 0.5,
-        shadow: 0.0,
-        shadow_color: 0x6B4A1A,
+        fill: 0.86,
+        border: 0.9,
+        tint: 0xFFFFFF,
     };
     pub const FAINT: Glass = Glass {
-        top: 0.26,
-        bottom: 0.2,
-        edge: 0.0,
-        rim_top: 0.5,
-        rim_bottom: 0.25,
-        shadow: 0.0,
-        shadow_color: 0x6B4A1A,
+        fill: 0.3,
+        border: 0.5,
+        tint: 0xFFFFFF,
     };
 }
 
@@ -227,14 +179,6 @@ fn mix(dst: u32, src: Rgb, a: f32) -> u32 {
     let (d, s) = (channels(dst), channels(src));
     let ch = |i: usize| (d[i] + (s[i] - d[i]) * a).round().clamp(0.0, 255.0) as u32;
     (ch(0) << 16) | (ch(1) << 8) | ch(2)
-}
-
-fn lerp(a: f32, b: f32, t: f32) -> f32 {
-    a + (b - a) * t
-}
-
-fn lerp_rgb(a: Rgb, b: Rgb, t: f32) -> Rgb {
-    mix(a, b, t)
 }
 
 /// Signed distance from (px, py) to the rounded rectangle: negative inside.
@@ -352,22 +296,6 @@ impl Canvas {
         });
     }
 
-    /// Replaces the canvas with `base` plus soft circles of light.
-    pub fn backdrop(&mut self, base: Rgb, blobs: &[Blob]) {
-        for y in 0..self.h {
-            for x in 0..self.w {
-                let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
-                let mut c = base;
-                for b in blobs {
-                    let t = ((fx - b.cx).hypot(fy - b.cy) / b.radius).min(1.0);
-                    let falloff = 1.0 - t * t * (3.0 - 2.0 * t);
-                    c = mix(c, b.color, b.alpha * falloff * falloff);
-                }
-                self.px[y * self.w + x] = c;
-            }
-        }
-    }
-
     fn each(&mut self, r: Rect, margin: f32, mut f: impl FnMut(&mut u32, f32, f32)) {
         let x0 = ((r.x - margin).floor().max(0.0)) as usize;
         let y0 = ((r.y - margin).floor().max(0.0)) as usize;
@@ -383,18 +311,6 @@ impl Canvas {
     pub fn fill(&mut self, r: Rect, radius: f32, color: Rgb, alpha: f32) {
         self.each(r, 1.0, |p, x, y| {
             *p = mix(*p, color, alpha * cover(sdf(x, y, r, radius)));
-        });
-    }
-
-    /// Vertical gradient from `top` to `bottom`.
-    pub fn fill_v(&mut self, r: Rect, radius: f32, top: Rgb, bottom: Rgb, alpha: f32) {
-        self.each(r, 1.0, |p, x, y| {
-            let v = ((y - r.y) / r.h).clamp(0.0, 1.0);
-            *p = mix(
-                *p,
-                lerp_rgb(top, bottom, v),
-                alpha * cover(sdf(x, y, r, radius)),
-            );
         });
     }
 
@@ -416,16 +332,6 @@ impl Canvas {
         });
     }
 
-    /// A soft shadow under `r`, hidden where the shape itself will be.
-    pub fn shadow(&mut self, r: Rect, radius: f32, blur: f32, dy: f32, color: Rgb, alpha: f32) {
-        let moved = Rect::new(r.x, r.y + dy, r.w, r.h);
-        self.each(moved, blur + 2.0, |p, x, y| {
-            let fall = 1.0 - (sdf(x, y, moved, radius) / blur).clamp(0.0, 1.0);
-            let outside = (sdf(x, y, r, radius) + 0.5).clamp(0.0, 1.0);
-            *p = mix(*p, color, alpha * fall * fall * outside);
-        });
-    }
-
     /// An anti-aliased line segment.
     pub fn line(&mut self, a: (f32, f32), b: (f32, f32), width: f32, color: Rgb, alpha: f32) {
         let bounds = Rect::new(
@@ -443,66 +349,21 @@ impl Canvas {
         });
     }
 
-    /// A frosted-glass surface: translucent white body, brighter along the inside of
-    /// the edge, a bright rim that cools toward warm light at the bottom, and a soft
-    /// shadow outside.
-    pub fn glass(&mut self, r: Rect, radius: f32, g: Glass) {
-        if g.shadow > 0.0 {
-            self.shadow(r, radius, 14.0, 5.0, g.shadow_color, g.shadow);
-        }
-        self.each(r, 1.0, |p, x, y| {
-            let d = sdf(x, y, r, radius);
-            let c = cover(d);
-            if c <= 0.0 {
-                return;
-            }
-            let v = ((y - r.y) / r.h).clamp(0.0, 1.0);
-            let near = 1.0 - (-d / 7.0).clamp(0.0, 1.0);
-            let body = (lerp(g.top, g.bottom, v) + near * near * g.edge).min(1.0);
-            *p = mix(*p, 0xFFFFFF, body * c);
-            let rim = c * (d + 1.75).clamp(0.0, 1.0);
-            let rim_color = lerp_rgb(
-                0xFFFFFF,
-                palette::WARM_RIM,
-                ((v - 0.55) / 0.45).clamp(0.0, 1.0) * 0.25,
-            );
-            *p = mix(*p, rim_color, lerp(g.rim_top, g.rim_bottom, v) * rim);
-        });
+    /// A flat translucent surface with a hairline edge. `border_color` is the colour of
+    /// the hairline (the look's line colour).
+    pub fn glass(&mut self, r: Rect, radius: f32, g: Glass, border_color: Rgb) {
+        self.fill(r, radius, g.tint, g.fill);
+        self.stroke(r, radius, 1.0, border_color, g.border * 0.2);
     }
 
-    /// A recessed groove (the tab track, an off switch): darker, with a light lower lip.
-    pub fn inset(&mut self, r: Rect, radius: f32, depth: f32, tint: Rgb, lip: f32) {
+    /// A recessed groove (the tab track, a switch that is off): one flat tint.
+    pub fn inset(&mut self, r: Rect, radius: f32, depth: f32, tint: Rgb) {
         self.fill(r, radius, tint, depth);
-        self.each(r, 1.0, |p, x, y| {
-            let d = sdf(x, y, r, radius);
-            let c = cover(d);
-            let v = ((y - r.y) / r.h).clamp(0.0, 1.0);
-            let shade = (1.0 - (y - r.y) / 5.0).clamp(0.0, 1.0);
-            *p = mix(*p, tint, depth * 0.8 * shade * c);
-            let lip_band = c * (d + 1.5).clamp(0.0, 1.0) * ((v - 0.5) * 2.0).clamp(0.0, 1.0);
-            *p = mix(*p, 0xFFFFFF, lip * lip_band);
-        });
     }
 
-    /// A saffron surface (primary button, switch that is on, the brand drop).
-    pub fn saffron(&mut self, r: Rect, radius: f32, shadow: bool) {
-        if shadow {
-            self.shadow(r, radius, 10.0, 4.0, palette::SAFFRON_DEEP, 0.4);
-        }
-        self.fill_v(r, radius, 0xF9B52C, palette::SAFFRON, 1.0);
-        let gloss = Rect::new(r.x + 1.5, r.y + 1.5, r.w - 3.0, r.h * 0.5);
-        self.each(gloss, 1.0, |p, x, y| {
-            let t = ((y - gloss.y) / gloss.h).clamp(0.0, 1.0);
-            let inside = cover(sdf(x, y, gloss, radius)) * cover(sdf(x, y, r, radius) + 1.5);
-            *p = mix(*p, 0xFFFFFF, 0.14 * (1.0 - t) * inside);
-        });
-        self.stroke(r, radius, 1.0, 0xFFFFFF, 0.3);
-        let low = Rect::new(r.x, r.y + r.h * 0.6, r.w, r.h * 0.4);
-        self.each(low, 1.0, |p, x, y| {
-            let d = sdf(x, y, r, radius);
-            let band = cover(d) * (d + 1.4).clamp(0.0, 1.0);
-            *p = mix(*p, palette::SAFFRON_DEEP, 0.18 * band);
-        });
+    /// The saffron surface of the main button: one flat colour.
+    pub fn saffron(&mut self, r: Rect, radius: f32) {
+        self.fill(r, radius, palette::SAFFRON, 1.0);
     }
 }
 
@@ -538,38 +399,36 @@ mod tests {
     }
 
     #[test]
-    fn glass_keeps_the_shadow_out_of_the_panel_and_lightens_it() {
+    fn glass_is_one_flat_translucent_colour() {
+        let t = Theme::new(false, 100);
         let mut c = Canvas::new(120, 100, 0x806040);
         let r = Rect::new(20.0, 20.0, 80.0, 50.0);
-        c.glass(r, 14.0, Glass::PANEL);
-        let inside = c.px[45 * 120 + 60];
+        c.glass(r, 14.0, t.glass(Glass::PANEL), t.line);
+        let top = c.px[35 * 120 + 60];
+        let bottom = c.px[55 * 120 + 60];
+        assert_eq!(top, bottom, "no gradient inside the panel");
         assert!(
-            channels(inside)[0] > channels(0x806040)[0],
+            channels(top)[0] > channels(0x806040)[0],
             "lighter than the backdrop"
         );
-        let below = c.px[78 * 120 + 60];
-        assert!(
-            channels(below)[0] < channels(0x806040)[0],
-            "shadow under the panel"
-        );
-        assert_eq!(c.px[2 * 120 + 2], 0x806040, "far corner untouched");
+        assert!(channels(top)[0] < 255.0, "the backdrop still shows through");
+        assert_eq!(c.px[75 * 120 + 60], 0x806040, "no shadow outside");
     }
 
     #[test]
-    fn backdrop_is_brightest_at_the_blob_centre() {
-        let mut c = Canvas::new(80, 80, 0);
-        c.backdrop(
-            0x000000,
-            &[Blob {
-                cx: 40.0,
-                cy: 40.0,
-                radius: 30.0,
-                color: 0xFFFFFF,
-                alpha: 1.0,
-            }],
-        );
-        assert!(channels(c.px[40 * 80 + 40])[0] > 250.0);
-        assert_eq!(c.px[0], 0);
+    fn lower_opacity_lets_more_through() {
+        let fill = |pct| Theme::new(false, pct).glass(Glass::PANEL).fill;
+        assert!(fill(40) < fill(100));
+    }
+
+    #[test]
+    fn dark_theme_is_dim_with_light_text() {
+        let (l, d) = (Theme::new(false, 100), Theme::new(true, 100));
+        assert!(d.glass(Glass::PANEL).fill < l.glass(Glass::PANEL).fill);
+        assert!(channels(d.ink)[0] > channels(d.base)[0] + 100.0);
+        assert!(channels(l.ink)[0] < channels(l.base)[0] - 100.0);
+        assert_eq!(Theme::new(false, 5).opacity, 0.2, "clamped up");
+        assert_eq!(Theme::new(false, 500).opacity, 1.0, "clamped down");
     }
 
     #[test]
@@ -582,27 +441,11 @@ mod tests {
     }
 
     #[test]
-    fn saffron_and_inset_stay_inside_their_bounds() {
+    fn saffron_is_a_single_colour() {
         let mut c = Canvas::new(100, 60, 0xFFFFFF);
-        c.saffron(Rect::new(20.0, 15.0, 60.0, 28.0), 14.0, false);
-        let centre = channels(c.px[29 * 100 + 50]);
-        assert!(
-            centre[0] > 230.0 && centre[2] < 150.0,
-            "orange-yellow centre"
-        );
-        c.inset(Rect::new(0.0, 0.0, 100.0, 10.0), 5.0, 0.1, 0x000000, 0.7);
-    }
-
-    #[test]
-    fn dark_theme_has_dim_glass_and_light_text() {
-        let (l, d) = (Theme::new(false, 100), Theme::new(true, 100));
-        assert!(d.glass(Glass::PANEL).top < l.glass(Glass::PANEL).top);
-        assert!(channels(d.ink)[0] > channels(d.base)[0] + 100.0);
-        assert!(channels(l.ink)[0] < channels(l.base)[0] - 100.0);
-        assert_eq!(Theme::new(false, 5).opacity, 0.2, "clamped up");
-        assert_eq!(Theme::new(false, 500).opacity, 1.0, "clamped down");
-        let half = Theme::new(false, 50).glass(Glass::PANEL);
-        assert!(half.top < l.glass(Glass::PANEL).top);
+        c.saffron(Rect::new(20.0, 15.0, 60.0, 28.0), 14.0);
+        assert_eq!(c.px[20 * 100 + 50], palette::SAFFRON);
+        assert_eq!(c.px[38 * 100 + 50], palette::SAFFRON);
     }
 
     #[test]
