@@ -180,14 +180,14 @@
         <!-- Bitmap radio group: each choice is its preview picture; the picked one shows pressed. -->
         <Control Id="ThemeChoice" Type="RadioButtonGroup" X="15" Y="62" Width="340" Height="76" Property="THEME" Bitmap="yes">
           <RadioButtonGroup Property="THEME">
-            <RadioButton Value="system" X="0" Y="0" Width="108" Height="72" Text="ThemePreviewSystem" />
-            <RadioButton Value="light" X="116" Y="0" Width="108" Height="72" Text="ThemePreviewLight" />
-            <RadioButton Value="dark" X="232" Y="0" Width="108" Height="72" Text="ThemePreviewDark" />
+            <RadioButton Value="light" X="0" Y="0" Width="108" Height="72" Text="ThemePreviewLight" />
+            <RadioButton Value="dark" X="116" Y="0" Width="108" Height="72" Text="ThemePreviewDark" />
+            <RadioButton Value="system" X="232" Y="0" Width="108" Height="72" Text="ThemePreviewSystem" />
           </RadioButtonGroup>
         </Control>
-        <Control Id="LabelSystem" Type="Text" X="15" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Follow Windows" />
-        <Control Id="LabelLight" Type="Text" X="131" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Light" />
-        <Control Id="LabelDark" Type="Text" X="247" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Dark" />
+        <Control Id="LabelLight" Type="Text" X="15" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Light" />
+        <Control Id="LabelDark" Type="Text" X="131" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Dark" />
+        <Control Id="LabelSystem" Type="Text" X="247" Y="142" Width="108" Height="14" Transparent="yes" NoPrefix="yes" Text="Follow Windows" />
         <Control Id="Hint" Type="Text" X="15" Y="170" Width="340" Height="26" Transparent="yes" NoPrefix="yes"
                  Text="Follow Windows switches between light and dark with your Windows app mode." />
         <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="Next">

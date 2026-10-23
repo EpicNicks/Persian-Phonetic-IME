@@ -128,9 +128,9 @@ pub const FORM_OPTIONS: &[FormOption] = &[
         key: "theme",
         label: "Settings window look",
         value_labels: &[
-            ("system", "Follow Windows"),
             ("light", "Light"),
             ("dark", "Dark"),
+            ("system", "Follow Windows"),
         ],
     },
 ];
@@ -150,13 +150,25 @@ impl FormOption {
         option_specs().iter().find(|s| s.name == self.key)
     }
 
-    /// The values offered, in `pime-core`'s order (Bool: true, false).
+    /// The values offered, in label order (Bool: true, false).
     pub fn values(&self) -> Vec<OptionValue> {
         match self.spec().map(|s| s.kind) {
-            Some(OptionKind::Choice(values)) => values
-                .iter()
-                .map(|v| OptionValue::Text(v.to_string()))
-                .collect(),
+            Some(OptionKind::Choice(values)) => {
+                // Shown in the order of `value_labels`, so the form can put a choice
+                // (like "system") last without changing which one is the default.
+                let mut v: Vec<OptionValue> = values
+                    .iter()
+                    .map(|v| OptionValue::Text(v.to_string()))
+                    .collect();
+                v.sort_by_key(|x| {
+                    let name = value_name(x);
+                    self.value_labels
+                        .iter()
+                        .position(|(n, _)| *n == name)
+                        .unwrap_or(usize::MAX)
+                });
+                v
+            }
             Some(OptionKind::Bool) => vec![OptionValue::Bool(true), OptionValue::Bool(false)],
             _ => Vec::new(),
         }

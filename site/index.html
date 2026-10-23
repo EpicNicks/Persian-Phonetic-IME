@@ -6,6 +6,7 @@
 <title>Persian Phonetic IME</title>
 <meta name="description" content="Type Persian on Windows from Latin letters. Free, open source, private.">
 <meta name="color-scheme" content="light dark">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="preload" href="fonts/bricolage-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/vazirmatn-arabic.woff2" as="font" type="font/woff2" crossorigin>
 <style>
@@ -253,15 +254,19 @@
     text-underline-offset: .2em;
   }
 
-  .config { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 27rem); gap: 2rem; align-items: start; }
+  .config { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 24rem); gap: 2.5rem 3rem; align-items: start; }
+  section:has(.config) { padding: 4.5rem 0; }
   .config ul { max-width: 40rem; margin: 0 0 1rem; padding-left: 1.2rem; }
   .config li { margin-bottom: .35rem; }
   .config li::marker { color: var(--saffron); }
-  .shot { margin: 0; }
-  .shot img { display: block; width: 100%; height: auto; border: 1px solid var(--line); border-radius: .4rem; box-shadow: .6rem .6rem 0 var(--saffron); }
+  .shot { margin: 0 1rem 1rem 0; }
+  .shot .looks a { border: 1px solid var(--line); border-radius: .4rem; box-shadow: .6rem .6rem 0 var(--saffron); }
+  .shot .looks img { border-radius: .4rem; }
   .shot input { position: absolute; opacity: 0; pointer-events: none; }
   .looks { position: relative; }
-  .looks img { display: none; }
+  .looks a { display: none; cursor: zoom-in; }
+  .looks img { display: block; width: 100%; height: auto; transition: transform .25s ease; }
+  .looks a:hover img, .looks a:focus-visible img { transform: scale(1.02); }
   .looks .light { display: block; }
   @media (prefers-color-scheme: dark) {
     .looks .light { display: none; }
@@ -271,7 +276,7 @@
   #look-light:checked ~ .looks .dark { display: none; }
   #look-dark:checked ~ .looks .light { display: none; }
   #look-dark:checked ~ .looks .dark { display: block; }
-  .modes { display: inline-flex; gap: .25rem; margin-top: 1.4rem; padding: .25rem; border: 1px solid var(--line); border-radius: 2rem; background: var(--card); }
+  .modes { display: inline-flex; gap: .25rem; margin-top: 2.25rem; padding: .25rem; border: 1px solid var(--line); border-radius: 2rem; background: var(--card); }
   .modes label { padding: .3rem .95rem; border-radius: 2rem; color: var(--muted); font-size: .875rem; cursor: pointer; }
   .modes label:hover { color: var(--fg); }
   #look-system:checked ~ .modes [for=look-system],
@@ -281,7 +286,24 @@
   #look-system:focus-visible ~ .modes [for=look-system],
   #look-light:focus-visible ~ .modes [for=look-light],
   #look-dark:focus-visible ~ .modes [for=look-dark] { outline: 2px solid var(--fg); outline-offset: 2px; }
-  .shot figcaption { margin-top: 1.1rem; color: var(--muted); font-size: .875rem; }
+  .shot figcaption { margin-top: 1.25rem; color: var(--muted); font-size: .875rem; }
+
+  .lb { width: auto; max-width: none; max-height: none; padding: 0; border: 0; background: transparent; overflow: visible; color: #fff; }
+  .lb::backdrop { background: rgba(6, 9, 22, .78); backdrop-filter: blur(6px); }
+  .lb-stage { position: relative; }
+  .lb-stage img { display: block; width: min(92vw, 52rem); max-height: 74vh; object-fit: contain; border-radius: .6rem; box-shadow: 0 1.5rem 4rem rgba(0, 0, 0, .5); }
+  .lb-nav { position: absolute; top: 50%; width: 2.75rem; height: 2.75rem; margin-top: -1.375rem; border: 1px solid rgba(255, 255, 255, .35); border-radius: 50%; background: rgba(10, 15, 38, .7); color: #fff; font: 1.25rem/1 var(--font); cursor: pointer; }
+  .lb-nav:hover { background: var(--saffron); border-color: var(--saffron); color: #1a1300; }
+  .lb-prev { left: -3.75rem; }
+  .lb-next { right: -3.75rem; }
+  .lb-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: .5rem; margin-top: 1.1rem; }
+  .lb-tabs button { padding: .3rem .9rem; border: 1px solid rgba(255, 255, 255, .3); border-radius: 2rem; background: rgba(10, 15, 38, .6); color: #e9ecf6; font: .875rem var(--font); cursor: pointer; }
+  .lb-tabs button[aria-current=true] { border-color: var(--saffron); background: var(--saffron); color: #1a1300; font-weight: 600; }
+  @media (max-width: 62rem) {
+    .lb-prev { left: .5rem; }
+    .lb-next { right: .5rem; }
+  }
+  @media (prefers-reduced-motion: reduce) { .looks img { transition: none; } }
 
   dl { margin: 0; }
   dt { margin-top: 1.25rem; font-weight: 600; }
@@ -300,7 +322,7 @@
     header { padding-top: 2rem; }
     section { grid-template-columns: 1fr; padding: 2.25rem 0; }
     .config { grid-template-columns: 1fr; }
-    .shot { max-width: 27rem; }
+    .shot { max-width: 24rem; }
   }
   @media (max-width: 36rem) {
     .pairs { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
@@ -426,17 +448,21 @@
         <input type="radio" name="look" id="look-light">
         <input type="radio" name="look" id="look-dark">
         <div class="looks">
-          <img class="light" src="img/settings-light.png" width="720" height="640" loading="lazy"
-               alt="The settings window in its light look: a Try typing box showing salaam khoobi in Persian, tabs for Letters, Keys and list, Word completion, Appearance and Settings file, and drop-down options for gh, q, c, digits, punctuation, quotes and Shift.">
-          <img class="dark" src="img/settings-dark.png" width="720" height="640" loading="lazy"
-               alt="The same settings window in its dark look.">
+          <a class="light" href="img/settings-light-0.webp" aria-label="Open the settings window screenshots">
+            <img src="img/settings-light-0.webp" width="720" height="690" loading="lazy"
+                 alt="The settings window in its light look: a Try typing box showing salaam khoobi in Persian, tabs for Letters, Keys and list, Word completion, Appearance and Settings file, and drop-down options for gh, q, c, digits, punctuation, quotes and Shift.">
+          </a>
+          <a class="dark" href="img/settings-dark-0.webp" aria-label="Open the settings window screenshots">
+            <img src="img/settings-dark-0.webp" width="720" height="690" loading="lazy"
+                 alt="The same settings window in its dark look.">
+          </a>
         </div>
         <div class="modes" role="group" aria-label="Window look">
-          <label for="look-system">System</label>
           <label for="look-light">Light</label>
           <label for="look-dark">Dark</label>
+          <label for="look-system">System</label>
         </div>
-        <figcaption>The settings window follows Windows, or stays light or dark.</figcaption>
+        <figcaption>The settings window follows Windows, or stays light or dark. Click it to see every tab.</figcaption>
       </figure>
     </div>
   </section>
@@ -722,5 +748,60 @@
 })();
 </script>
 
+
+<dialog class="lb" id="lightbox" aria-label="Settings window screenshots">
+  <div class="lb-stage">
+    <button class="lb-nav lb-prev" type="button" aria-label="Previous screenshot">&#8249;</button>
+    <img alt="">
+    <button class="lb-nav lb-next" type="button" aria-label="Next screenshot">&#8250;</button>
+  </div>
+  <div class="lb-tabs"></div>
+</dialog>
+
+<script>
+(() => {
+  const tabs = ["Letters", "Keys and list", "Word completion", "Appearance", "Settings file"];
+  const dlg = document.getElementById("lightbox");
+  if (!dlg || !dlg.showModal) return;
+  const img = dlg.querySelector("img");
+  const bar = dlg.querySelector(".lb-tabs");
+  let mode = "light", at = 0;
+  const buttons = tabs.map((label, n) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = label;
+    b.addEventListener("click", () => show(n));
+    bar.appendChild(b);
+    return b;
+  });
+  const current = () => {
+    const id = document.querySelector("input[name=look]:checked").id;
+    if (id === "look-dark") return "dark";
+    if (id === "look-light") return "light";
+    return matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  };
+  function show(n) {
+    at = (n + tabs.length) % tabs.length;
+    img.src = "img/settings-" + mode + "-" + at + ".webp";
+    img.alt = "The " + tabs[at] + " tab of the settings window in its " + mode + " look.";
+    buttons.forEach((b, k) => b.setAttribute("aria-current", k === at));
+  }
+  document.querySelectorAll(".looks a").forEach((a) => a.addEventListener("click", (e) => {
+    e.preventDefault();
+    mode = current();
+    show(0);
+    dlg.showModal();
+  }));
+  dlg.querySelector(".lb-prev").addEventListener("click", () => show(at - 1));
+  dlg.querySelector(".lb-next").addEventListener("click", () => show(at + 1));
+  dlg.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") show(at - 1);
+    if (e.key === "ArrowRight") show(at + 1);
+  });
+  dlg.addEventListener("click", (e) => {
+    if (!e.target.closest("img, button")) dlg.close();
+  });
+})();
+</script>
 </body>
 </html>

@@ -158,47 +158,47 @@ pub struct Glass {
 
 impl Glass {
     pub const PANEL: Glass = Glass {
-        top: 0.58,
-        bottom: 0.34,
-        edge: 0.14,
-        rim_top: 0.95,
+        top: 0.34,
+        bottom: 0.27,
+        edge: 0.04,
+        rim_top: 0.7,
         rim_bottom: 0.35,
-        shadow: 0.16,
+        shadow: 0.07,
         shadow_color: 0x6B4A1A,
     };
     pub const RAISED: Glass = Glass {
-        top: 0.94,
-        bottom: 0.78,
-        edge: 0.1,
-        rim_top: 1.0,
+        top: 0.9,
+        bottom: 0.82,
+        edge: 0.03,
+        rim_top: 0.9,
         rim_bottom: 0.5,
         shadow: 0.0,
         shadow_color: 0x6B4A1A,
     };
     pub const CONTROL: Glass = Glass {
-        top: 0.7,
-        bottom: 0.5,
-        edge: 0.08,
-        rim_top: 0.95,
+        top: 0.5,
+        bottom: 0.42,
+        edge: 0.03,
+        rim_top: 0.75,
         rim_bottom: 0.4,
         shadow: 0.0,
         shadow_color: 0x6B4A1A,
     };
     pub const HOVER: Glass = Glass {
-        top: 0.86,
-        bottom: 0.68,
-        edge: 0.08,
-        rim_top: 1.0,
+        top: 0.7,
+        bottom: 0.6,
+        edge: 0.03,
+        rim_top: 0.9,
         rim_bottom: 0.5,
         shadow: 0.0,
         shadow_color: 0x6B4A1A,
     };
     pub const FAINT: Glass = Glass {
-        top: 0.32,
-        bottom: 0.22,
+        top: 0.26,
+        bottom: 0.2,
         edge: 0.0,
-        rim_top: 0.6,
-        rim_bottom: 0.2,
+        rim_top: 0.5,
+        rim_bottom: 0.25,
         shadow: 0.0,
         shadow_color: 0x6B4A1A,
     };
@@ -319,6 +319,39 @@ impl Canvas {
         out
     }
 
+    /// Draws straight-alpha RGBA pixels (`sw` x `sh`) scaled into `dest`, averaging
+    /// the source over each destination pixel so shrinking stays smooth.
+    pub fn blit_rgba(&mut self, src: &[u8], sw: usize, sh: usize, dest: Rect) {
+        if src.len() < sw * sh * 4 || dest.w <= 0.0 || dest.h <= 0.0 {
+            return;
+        }
+        let n = ((sw as f32 / dest.w).ceil() as usize).clamp(1, 8);
+        self.each(dest, 0.0, |p, x, y| {
+            let (mut r, mut g, mut b, mut a) = (0.0f32, 0.0f32, 0.0f32, 0.0f32);
+            for j in 0..n {
+                for i in 0..n {
+                    let fx = (x - 0.5 + (i as f32 + 0.5) / n as f32 - dest.x) / dest.w;
+                    let fy = (y - 0.5 + (j as f32 + 0.5) / n as f32 - dest.y) / dest.h;
+                    if !(0.0..1.0).contains(&fx) || !(0.0..1.0).contains(&fy) {
+                        continue;
+                    }
+                    let k = ((fy * sh as f32) as usize * sw + (fx * sw as f32) as usize) * 4;
+                    let al = src[k + 3] as f32 / 255.0;
+                    r += src[k] as f32 * al;
+                    g += src[k + 1] as f32 * al;
+                    b += src[k + 2] as f32 * al;
+                    a += al;
+                }
+            }
+            if a > 0.0 {
+                let c = (((r / a).round() as u32) << 16)
+                    | (((g / a).round() as u32) << 8)
+                    | ((b / a).round() as u32);
+                *p = mix(*p, c, a / (n * n) as f32);
+            }
+        });
+    }
+
     /// Replaces the canvas with `base` plus soft circles of light.
     pub fn backdrop(&mut self, base: Rgb, blobs: &[Blob]) {
         for y in 0..self.h {
@@ -431,7 +464,7 @@ impl Canvas {
             let rim_color = lerp_rgb(
                 0xFFFFFF,
                 palette::WARM_RIM,
-                ((v - 0.55) / 0.45).clamp(0.0, 1.0),
+                ((v - 0.55) / 0.45).clamp(0.0, 1.0) * 0.25,
             );
             *p = mix(*p, rim_color, lerp(g.rim_top, g.rim_bottom, v) * rim);
         });
@@ -456,19 +489,19 @@ impl Canvas {
         if shadow {
             self.shadow(r, radius, 10.0, 4.0, palette::SAFFRON_DEEP, 0.4);
         }
-        self.fill_v(r, radius, palette::SAFFRON_LIGHT, palette::SAFFRON, 1.0);
+        self.fill_v(r, radius, 0xF9B52C, palette::SAFFRON, 1.0);
         let gloss = Rect::new(r.x + 1.5, r.y + 1.5, r.w - 3.0, r.h * 0.5);
         self.each(gloss, 1.0, |p, x, y| {
             let t = ((y - gloss.y) / gloss.h).clamp(0.0, 1.0);
             let inside = cover(sdf(x, y, gloss, radius)) * cover(sdf(x, y, r, radius) + 1.5);
-            *p = mix(*p, 0xFFFFFF, 0.42 * (1.0 - t) * inside);
+            *p = mix(*p, 0xFFFFFF, 0.14 * (1.0 - t) * inside);
         });
-        self.stroke(r, radius, 1.2, 0xFFFFFF, 0.45);
+        self.stroke(r, radius, 1.0, 0xFFFFFF, 0.3);
         let low = Rect::new(r.x, r.y + r.h * 0.6, r.w, r.h * 0.4);
         self.each(low, 1.0, |p, x, y| {
             let d = sdf(x, y, r, radius);
             let band = cover(d) * (d + 1.4).clamp(0.0, 1.0);
-            *p = mix(*p, palette::SAFFRON_DEEP, 0.35 * band);
+            *p = mix(*p, palette::SAFFRON_DEEP, 0.18 * band);
         });
     }
 }
@@ -592,5 +625,17 @@ mod tests {
         let c = Canvas::split_diagonal(&a, &b);
         assert_eq!(c.px[0], 1, "top-left is the first");
         assert_eq!(c.px[19 * 40 + 39], 2, "bottom-right is the second");
+    }
+
+    #[test]
+    fn blit_rgba_blends_by_alpha_and_ignores_clear_pixels() {
+        let mut c = Canvas::new(8, 8, 0x000000);
+        let mut src = vec![0u8; 2 * 2 * 4];
+        for px in src.chunks_mut(4).take(2) {
+            px.copy_from_slice(&[255, 255, 255, 255]);
+        }
+        c.blit_rgba(&src, 2, 2, Rect::new(0.0, 0.0, 8.0, 8.0));
+        assert_eq!(c.px[0], 0xFFFFFF, "opaque top half");
+        assert_eq!(c.px[7 * 8], 0x000000, "clear bottom half");
     }
 }

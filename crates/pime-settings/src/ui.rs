@@ -35,6 +35,7 @@ use std::sync::Arc;
 use windows::core::{w, Result, BOOL, HSTRING, PCWSTR};
 use windows::Win32::Foundation::{COLORREF, HINSTANCE, HWND, LPARAM, LRESULT, POINT, RECT, WPARAM};
 use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_USE_IMMERSIVE_DARK_MODE};
+use windows::Win32::Graphics::Gdi::CreateBitmap;
 use windows::Win32::Graphics::Gdi::{
     BeginPaint, BitBlt, CreateCompatibleDC, CreateDIBSection, CreateFontW, CreateSolidBrush,
     DeleteDC, DeleteObject, DrawTextW, EndPaint, GetDC, InvalidateRect, RedrawWindow, ReleaseDC,
@@ -73,8 +74,16 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WNDCLASSEXW, WS_CAPTION, WS_CHILD, WS_CLIPCHILDREN, WS_EX_RTLREADING, WS_MINIMIZEBOX,
     WS_OVERLAPPED, WS_SYSMENU, WS_TABSTOP, WS_VISIBLE, WS_VSCROLL,
 };
+use windows::Win32::UI::WindowsAndMessaging::{
+    CreateIconIndirect, GetSystemMetrics, HICON, ICONINFO, ICON_BIG, ICON_SMALL, SM_CXICON,
+    SM_CXSMICON, WM_SETICON,
+};
 
 const CLASS: PCWSTR = w!("PersianPhoneticImeSettings");
+
+/// The pe logo (site/favicon.svg) as 128x128 straight-alpha RGBA.
+const LOGO: &[u8] = include_bytes!("../assets/logo-128.rgba");
+const LOGO_PX: usize = 128;
 const ID_PILL: i32 = 90;
 const ID_TAB_BASE: i32 = 91;
 const ID_STATUS: i32 = 100;
@@ -114,7 +123,6 @@ const F_SMALL: usize = 1;
 const F_BOLD: usize = 2;
 const F_TITLE: usize = 3;
 const F_PERSIAN: usize = 4;
-const F_DROP: usize = 5;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Page {
@@ -468,7 +476,6 @@ fn make_fonts(scale: f32) -> Vec<HFONT> {
             font(10, semibold),
             font(18, semibold),
             font(15, normal),
-            font(18, semibold),
         ];
         fonts
     }
@@ -693,6 +700,7 @@ fn create_and_loop(paths: Paths, errors_only: bool) -> Result<()> {
         APP.with(|a| *a.borrow_mut() = Some(state.clone()));
         apply_page(&state);
         refresh(&state);
+        set_window_icons(hwnd);
         let _ = ShowWindow(hwnd, SW_SHOWNORMAL);
         if let Some(t) = state.try_in {
             let _ = SetFocus(Some(t));
@@ -719,6 +727,92 @@ fn create_and_loop(paths: Paths, errors_only: bool) -> Result<()> {
             let _ = DeleteObject(HGDIOBJ(br.0));
         }
         Ok(())
+    }
+}
+
+// ---------------------------------------------------------------- icon
+
+/// The logo as an icon of `n` x `n` pixels.
+fn logo_icon(n: i32) -> Option<HICON> {
+    let size = n as usize;
+    let sub = (LOGO_PX / size).clamp(1, 8);
+    let mut bgra = vec![0u32; size * size];
+    for y in 0..size {
+        for x in 0..size {
+            let (mut r, mut g, mut b, mut a) = (0.0f32, 0.0f32, 0.0f32, 0.0f32);
+            for j in 0..sub {
+                for i in 0..sub {
+                    let sx = (x * LOGO_PX / size + i * LOGO_PX / size / sub).min(LOGO_PX - 1);
+                    let sy = (y * LOGO_PX / size + j * LOGO_PX / size / sub).min(LOGO_PX - 1);
+                    let k = (sy * LOGO_PX + sx) * 4;
+                    let al = LOGO[k + 3] as f32 / 255.0;
+                    r += LOGO[k] as f32 * al;
+                    g += LOGO[k + 1] as f32 * al;
+                    b += LOGO[k + 2] as f32 * al;
+                    a += al;
+                }
+            }
+            let t = (sub * sub) as f32;
+            let (a8, r8, g8, b8) = (
+                (a / t * 255.0).round() as u32,
+                (r / t).round() as u32,
+                (g / t).round() as u32,
+                (b / t).round() as u32,
+            );
+            // Premultiplied BGRA, as Windows expects for a 32-bit icon.
+            bgra[y * size + x] = (a8 << 24) | (r8 << 16) | (g8 << 8) | b8;
+        }
+    }
+    let info = BITMAPINFO {
+        bmiHeader: BITMAPINFOHEADER {
+            biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+            biWidth: n,
+            biHeight: -n,
+            biPlanes: 1,
+            biBitCount: 32,
+            biCompression: BI_RGB.0,
+            ..Default::default()
+        },
+        ..Default::default()
+    };
+    // SAFETY: plain GDI calls; the DIB holds n*n pixels and both bitmaps are freed after
+    // the icon has copied them.
+    unsafe {
+        let mut bits: *mut c_void = std::ptr::null_mut();
+        let color = CreateDIBSection(None, &info, DIB_RGB_COLORS, &mut bits, None, 0).ok()?;
+        if bits.is_null() {
+            let _ = DeleteObject(HGDIOBJ(color.0));
+            return None;
+        }
+        std::ptr::copy_nonoverlapping(bgra.as_ptr(), bits as *mut u32, bgra.len());
+        let mask = CreateBitmap(n, n, 1, 1, None);
+        let icon = CreateIconIndirect(&ICONINFO {
+            fIcon: BOOL::from(true),
+            xHotspot: 0,
+            yHotspot: 0,
+            hbmMask: mask,
+            hbmColor: color,
+        });
+        let _ = DeleteObject(HGDIOBJ(color.0));
+        let _ = DeleteObject(HGDIOBJ(mask.0));
+        icon.ok()
+    }
+}
+
+/// Gives the window (title bar, taskbar, Alt+Tab) the pe logo.
+fn set_window_icons(hwnd: HWND) {
+    for (kind, metric) in [(ICON_BIG, SM_CXICON), (ICON_SMALL, SM_CXSMICON)] {
+        // SAFETY: plain FFI calls; the icon lives as long as the window.
+        unsafe {
+            if let Some(icon) = logo_icon(GetSystemMetrics(metric).max(16)) {
+                SendMessageW(
+                    hwnd,
+                    WM_SETICON,
+                    Some(WPARAM(kind as usize)),
+                    Some(LPARAM(icon.0 as isize)),
+                );
+            }
+        }
     }
 }
 
@@ -926,10 +1020,10 @@ fn blobs(w: f32, h: f32, light: f32) -> [Blob; 4] {
         alpha: alpha * light,
     };
     [
-        blob(w * 0.94, h * 0.02, w * 0.62, 0xFFB52E, 0.72),
-        blob(w * 0.08, h * 0.0, w * 0.34, 0xFFD27A, 0.4),
-        blob(w * 0.02, h * 0.58, w * 0.5, 0x7FD1C7, 0.52),
-        blob(w * 0.78, h * 1.0, w * 0.5, 0xFF9C7A, 0.45),
+        blob(w * 0.94, h * 0.02, w * 0.62, 0xFFB52E, 0.3),
+        blob(w * 0.08, h * 0.0, w * 0.34, 0xFFD27A, 0.16),
+        blob(w * 0.02, h * 0.58, w * 0.5, 0x7FD1C7, 0.2),
+        blob(w * 0.78, h * 1.0, w * 0.5, 0xFF9C7A, 0.16),
     ]
 }
 
@@ -945,14 +1039,10 @@ fn build_scene(app: &App, d: &Dyn) -> Painter {
     let soft = t.ink_soft;
 
     // Header: the saffron drop and the title.
-    let drop = p.r(M, 18, 44, 44);
+    let logo = p.r(M, 18, 44, 44);
     p.canvas
-        .shadow(drop, drop.w / 2.0, 12.0, 5.0, palette::SAFFRON_DEEP, 0.4);
-    p.canvas.saffron(drop, drop.w / 2.0, false);
-    let glint = p.rf(M as f32 + 9.0, 22.0, 20.0, 10.0);
-    p.canvas.fill(glint, glint.h / 2.0, 0xFFFFFF, 0.55);
-    let r = p.r(M, 20, 44, 42);
-    p.text(r, "\u{0641}", F_DROP, palette::ON_SAFFRON, CENTRE);
+        .shadow(logo, logo.w * 0.25, 10.0, 4.0, palette::SAFFRON_DEEP, 0.25);
+    p.canvas.blit_rgba(LOGO, LOGO_PX, LOGO_PX, logo);
     let r = p.r(M + 58, 16, 420, 30);
     p.text(r, "Persian Phonetic IME", F_TITLE, ink, LEFT);
     let sub = if eo {
@@ -1825,12 +1915,8 @@ fn render_preview(dark: bool, fonts: &[HFONT]) -> Option<Canvas> {
     let mut p = Painter::new(w, h, 1.0, t.base);
     p.canvas
         .backdrop(t.base, &blobs(w as f32, h as f32, t.light));
-    let drop = Rect::new(16.0, 10.0, 32.0, 32.0);
-    p.canvas.saffron(drop, 16.0, false);
     p.canvas
-        .fill(Rect::new(21.0, 13.0, 14.0, 7.0), 3.5, 0xFFFFFF, 0.55);
-    let letter = Rect::new(16.0, 11.0, 32.0, 30.0);
-    p.text(letter, "\u{0641}", F_BOLD, palette::ON_SAFFRON, CENTRE);
+        .blit_rgba(LOGO, LOGO_PX, LOGO_PX, Rect::new(16.0, 10.0, 32.0, 32.0));
     let title = Rect::new(58.0, 10.0, 290.0, 34.0);
     p.text(title, "Persian Phonetic IME", F_TITLE, t.ink, LEFT);
 

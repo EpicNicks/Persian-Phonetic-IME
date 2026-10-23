@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <title>Persian Phonetic IME</title>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffc85a"/>
+      <stop offset="1" stop-color="#f4a300"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="16" fill="url(#g)"/>
+  <rect x="5" y="4" width="54" height="26" rx="13" fill="#fff" opacity=".28"/>
+  <path transform="translate(32 33) scale(0.02383 -0.02383) translate(-922 -78)" fill="#3a2500" d="M946 -355 785 -516 946 -677 1107 -516ZM1121 -99 960 -260 1121 -421 1282 -260ZM771 -99 610 -260 771 -421 932 -260ZM1111 0Q1247 0 1365 18Q1482 36 1571 84Q1660 133 1711 226Q1761 319 1761 469Q1761 552 1750 644Q1738 737 1719 831L1456 765Q1475 689 1491 605Q1506 521 1506 455Q1506 405 1480 373Q1453 340 1402 322Q1351 304 1279 297Q1206 289 1114 289H880Q770 289 673 297Q576 304 501 327Q427 349 384 394Q341 439 341 514Q341 570 359 633Q376 695 393 742L152 832Q122 759 102 674Q82 589 82 498Q82 346 141 249Q201 152 308 97Q416 43 561 21Q707 0 880 0Z"/>
+</svg>
