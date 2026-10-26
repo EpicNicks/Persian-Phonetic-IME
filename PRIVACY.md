@@ -10,4 +10,4 @@ Persian Phonetic IME will not transfer any information to other networked system
   - `%TEMP%\PersianPhoneticIme\pime-setup.log`: written by the installer helper. It records installer steps and exit codes, never typed text.
 - Uninstalling removes the program files. Your config and history stay until you delete them.
 
-The release build is signed by a code signing service. That happens on the build server before you download the installer and does not involve your machine.
+Release builds are not code signed. No code signing service is involved, and nothing is sent to one. Verify a download against the `.sha256` file attached to the release.
